@@ -13,12 +13,11 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.9", "3.12"]
 
     steps:
     - uses: actions/checkout@v4
@@ -45,15 +44,43 @@ jobs:
       run: poetry install
     - name: Tests
       run: poetry run pytest
-    - name: Deploy doc
-      run: poetry run mkdocs gh-deploy --force
-
+  
+  deploy:
+    needs: [build]
+    if: contains(github.ref, 'tags')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.10
+      - name: Install Openslide global dependencies
+        run: |
+          sudo apt update
+          sudo apt-get install -y libopenslide-dev openslide-tools libopenjp2-7 libopenjp2-tools
+      - name: Print Version Information
+        run: python -c "import sys; print(sys.version)"
+      - name: Load cached venv if cache exists
+        id: cached-poetry-dependencies
+        uses: actions/cache@v3
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+      - name: Install dependencies if cache does not exist
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+        run: poetry install
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+      - name: Deploy doc
+        run: poetry run mkdocs gh-deploy --force
   publish:
     needs: [build]
     if: contains(github.ref, 'tags')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Build and publish to pypi
         uses: JRubics/poetry-publish@v1.17
         with:
