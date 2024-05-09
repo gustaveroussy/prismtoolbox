@@ -1,0 +1,1 @@
+from .wsi import WSI

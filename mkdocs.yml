@@ -1,0 +1,67 @@
+site_name: PrismToolBox
+repo_name: prismtoolbox
+copyright: Copyright &copy; 2021 - 2022 Loïc Le Bescond
+theme:
+  name: material
+  palette:
+    primary: blue grey
+  features:
+    - navigation.tabs
+nav:
+- Home: index.md
+# defer to gen-files + literate-nav
+- API:
+    - prismtoolbox.wsicore:
+      - prismtoolbox.wsicore.wsi: reference/prismtoolbox/wsicore/wsi.md
+      - prismtoolbox.wsicore.core_utils: reference/prismtoolbox/wsicore/core_utils.md
+    - prismtoolbox.wsiemb:
+        - prismtoolbox.wsiemb.embedder: reference/prismtoolbox/wsiemb/embedder.md
+        - prismtoolbox.wsiemb.processing: reference/prismtoolbox/wsiemb/processing.md
+        - prismtoolbox.wsiemb.emb_utils: reference/prismtoolbox/wsiemb/emb_utils.md
+    - prismtoolbox.nucleiseg: reference/prismtoolbox/nucleiseg/segmenter.md
+# rest of the navigation...
+plugins:
+  - search
+  - autorefs
+  - gen-files:
+      scripts:
+        - scripts/mkdocs/gen_ref_pages.py
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          paths: [src]
+          rendering:
+            renderer: markdown
+          options:
+            docstring_style: google
+            docstring_section_style: table
+            merge_init_into_class: true
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            show_root_toc_entry: false
+  - literate-nav:
+      nav_file: SUMMARY.md
+  - section-index
+
+  #- mkdocs-jupyter:
+  #    include_source: True
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.tabbed:
+      alternate_style: true
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
