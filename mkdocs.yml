@@ -1,6 +1,7 @@
 site_name: PrismToolBox
-repo_name: prismtoolbox
-copyright: Copyright &copy; 2021 - 2022 Loïc Le Bescond
+repo_name: gustaveroussy/PrismToolBox
+repo_url: https://github.com/gustaveroussy/PrismToolBox
+copyright: Copyright &copy; 2023 - 2024 Loïc Le Bescond
 theme:
   name: material
   palette:
