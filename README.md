@@ -20,7 +20,7 @@ pip install prismtoolbox
 To install PrismToolBox embedding and nuclei utilitaries, please run the following command:
 
 ```bash
-pip install prismtoolbox[emb, seg]
+pip install 'prismtoolbox[emb, seg]'
 ```
 
 ## Usage
