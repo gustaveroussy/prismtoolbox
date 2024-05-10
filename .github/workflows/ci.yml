@@ -25,30 +25,9 @@ jobs:
       id: check-type
       run: |
         COMMIT_MSG=$(git log --format=%B -n 1 ${{ github.event.after }})
-        COMMIT_TYPE=$(echo $COMMIT_MSG | cut -d' ' -f1)
+        COMMIT_TYPE=$(echo $COMMIT_MSG | cut -d' ' -f1 | tr -d ':')
         echo "Commit type is '$COMMIT_TYPE'"
-        echo "{type}={COMMIT_TYPE}" >> $GITHUB_OUTPUT
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install Openslide global dependencies
-      run: |
-        sudo apt update
-        sudo apt-get install -y libopenslide-dev openslide-tools libopenjp2-7 libopenjp2-tools
-    - name: Print Version Information
-      run: python -c "import sys; print(sys.version)"
-    - name: Load cached venv if cache exists
-      id: cached-poetry-dependencies
-      uses: actions/cache@v3
-      with:
-        path: .venv
-        key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
-    - name: Install Poetry
-      uses: snok/install-poetry@v1
-    - name: Install dependencies if cache does not exist
-      if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-      run: poetry install
+        echo "{type}={$COMMIT_TYPE}" >> $GITHUB_OUTPUT
     - name: Check if tests should be skipped
       id: check-skip
       run: |
@@ -61,6 +40,32 @@ jobs:
           echo "Running tests..."
           echo "{skip}={false}" >> $GITHUB_OUTPUT
         fi
+    - name: Set up Python ${{ matrix.python-version }}
+      if: steps.check-skip.outputs.skip != 'true'
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install Openslide global dependencies
+      if: steps.check-skip.outputs.skip != 'true'
+      run: |
+        sudo apt update
+        sudo apt-get install -y libopenslide-dev openslide-tools libopenjp2-7 libopenjp2-tools
+    - name: Print Version Information
+      if: steps.check-skip.outputs.skip != 'true'
+      run: python -c "import sys; print(sys.version)"
+    - name: Load cached venv if cache exists
+      if: steps.check-skip.outputs.skip != 'true'
+      id: cached-poetry-dependencies
+      uses: actions/cache@v3
+      with:
+        path: .venv
+        key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
+    - name: Install Poetry
+      if: steps.check-skip.outputs.skip != 'true'
+      uses: snok/install-poetry@v1
+    - name: Install dependencies if cache does not exist
+      if: steps.check-skip.outputs.skip != 'true' && steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+      run: poetry install
     - name: Tests
       if: steps.check-skip.outputs.skip != 'true'
       run: poetry run pytest
