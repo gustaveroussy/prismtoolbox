@@ -27,7 +27,7 @@ jobs:
         COMMIT_MSG=$(git log --format=%B -n 1 ${{ github.event.after }})
         COMMIT_TYPE=$(echo $COMMIT_MSG | cut -d' ' -f1 | tr -d ':')
         echo "Commit type is '$COMMIT_TYPE'"
-        echo "{type}={$COMMIT_TYPE}" >> $GITHUB_OUTPUT
+        echo "type=$COMMIT_TYPE" >> "$GITHUB_OUTPUT"
     - name: Check if tests should be skipped
       id: check-skip
       run: |
@@ -35,10 +35,10 @@ jobs:
         SKIP_TYPES=("docs" "refactor" "style" "chore")
         if [[ " ${SKIP_TYPES[@]} " =~ " ${COMMIT_TYPE} " ]]; then
           echo "Skipping tests..."
-          echo "{skip}={true}" >> $GITHUB_OUTPUT
+          echo "skip=true" >> "$GITHUB_OUTPUT"
         else
           echo "Running tests..."
-          echo "{skip}={false}" >> $GITHUB_OUTPUT
+          echo "skip=false" >> "$GITHUB_OUTPUT"
         fi
     - name: Set up Python ${{ matrix.python-version }}
       if: steps.check-skip.outputs.skip != 'true'
