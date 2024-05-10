@@ -1,11 +1,16 @@
 [tool.poetry]
 name = "prismtoolbox"
+homepage = "https://gustaveroussy.github.io/prismtoolbox"
+documentation = "https://gustaveroussy.github.io/prismtoolbox"
+repository = "https://github.com/gustaveroussy/prismtoolbox"
 version = "0.0.1"
-description = "Toolbox for histopathology analysis"
+description = "Toolbox for histopathology image analysis"
 authors = ["Loïc Le Bescond <loic.le.bescond@centralesupelec.fr>"]
 packages = [
     { include = "prismtoolbox", from = "src"},
 ]
+license = "BSD-3-Clause"
+readme = "README.md"
 
 [tool.poetry.dependencies]
 python = ">=3.9,<3.12"

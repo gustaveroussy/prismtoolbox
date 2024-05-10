@@ -44,7 +44,7 @@ WSI_object.extract_patches(**params_patches)
 WSI_object.save_patches("path_to_folder", file_format="jpg")
 ```
 
-For more detailed usage instructions and examples, please refer to the [documentation](https://gustaveroussy.github.io/PrismToolBox/).
+For more detailed usage instructions and examples, please refer to the [documentation](https://gustaveroussy.github.io/prismtoolbox/).
 
 ## Contributing
 
