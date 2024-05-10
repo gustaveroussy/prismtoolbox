@@ -12,7 +12,28 @@ on:
     branches: [master, dev]
 
 jobs:
+  check-commit:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+    - name: Check commit type
+      id: check
+      run: |
+        COMMIT_MSG=$(git log --format=%B -n 1 ${{ github.event.after }})
+        if [[ "$COMMIT_MSG" == chore* ]]; then
+          echo "Commit type is 'chore', skipping tests..."
+          echo "::set-output name=skip::true"
+        else
+          echo "Commit type is not 'chore', continuing..."
+          echo "::set-output name=skip::false"
+        fi
+    outputs:
+      skip: ${{ steps.check.outputs.skip }}  
+
   build:
+    needs: [check-commit]
+    if: needs.check-commit.outputs.skip == 'false'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
