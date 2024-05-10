@@ -27,8 +27,7 @@ jobs:
         COMMIT_MSG=$(git log --format=%B -n 1 ${{ github.event.after }})
         COMMIT_TYPE=$(echo $COMMIT_MSG | cut -d' ' -f1)
         echo "Commit type is '$COMMIT_TYPE'"
-        echo "::set-output name=type::$COMMIT_TYPE"
-        fi
+        echo "{type}={COMMIT_TYPE}" >> $GITHUB_OUTPUT
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
@@ -57,10 +56,10 @@ jobs:
         SKIP_TYPES=("docs" "refactor" "style" "chore")
         if [[ " ${SKIP_TYPES[@]} " =~ " ${COMMIT_TYPE} " ]]; then
           echo "Skipping tests..."
-          echo "::set-output name=skip::true"
+          echo "{skip}={true}" >> $GITHUB_OUTPUT
         else
           echo "Running tests..."
-          echo "::set-output name=skip::false"
+          echo "{skip}={false}" >> $GITHUB_OUTPUT
         fi
     - name: Tests
       if: steps.check-skip.outputs.skip != 'true'
