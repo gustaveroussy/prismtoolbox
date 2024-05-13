@@ -14,7 +14,7 @@ class Phikon(nn.Module):
         return output.last_hidden_state[:, 0, :]
 
 
-def create_phikon_embedder(_):
+def create_phikon_embedder(weights=None):
     model = Phikon()
     pretrained_transforms = partial(
         AutoImageProcessor.from_pretrained("owkin/phikon"), return_tensors="pt"

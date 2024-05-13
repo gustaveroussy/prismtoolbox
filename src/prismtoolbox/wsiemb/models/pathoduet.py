@@ -164,6 +164,7 @@ class PathoDuet(VisionTransformer):
 
 
 def create_pathoduet_embedder(weights):
+    assert weights is not None, "Weights must be provided for PathoDuet"
     model = PathoDuet(pretext_token=True, global_pool="avg")
     model.head = nn.Identity()
     state_dict, pretrained_transforms = retrieve_pretrained_weight_transforms_from_dict(

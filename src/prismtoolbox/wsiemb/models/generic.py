@@ -24,6 +24,7 @@ class GenericEmbedderTorchvision:
     def construct_model(self):
         model = hub.load("pytorch/vision", self.name.lower())
         model.fc = nn.Identity()
+        return model
 
     def retrieve_pretrained_state_dict_transforms(self):
         if f"{self.name}_Weights.{self.weights}" in self.torchvision_weights:
@@ -82,11 +83,9 @@ class GenericEmbedderTimm:
             pretrained_transform = create_transform(
                 **resolve_data_config(self.model.pretrained_cfg, model=self.model)
             )
-        elif self.weights:
-            raise NotImplementedError
         else:
             raise ValueError(
-                "Pretained is False and no weights provided. Cannot retrieve pretrained transforms."
+                "Pretained is False. Cannot retrieve pretrained transforms."
             )
         return pretrained_transform
 
@@ -140,7 +139,8 @@ class GenericEmbedderTransformers:
         return pretrained_transforms
 
 
-def create_torchvision_embedder(name, weights=None):
+def create_torchvision_embedder(name, weights):
+    assert weights is not None, "Weights must be provided for Torchvision models"
     embedder = GenericEmbedderTorchvision(name, weights)
     if weights is not None:
         embedder.load_state_dict()

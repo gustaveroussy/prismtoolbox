@@ -36,7 +36,7 @@ class ConchModel(nn.Module):
         return x
 
 
-def create_conch_embedder(_):
+def create_conch_embedder(weights=None):
     checkpoint_path = "hf_hub:MahmoodLab/conch"
     with open(CFG_FILE, "r") as f:
         model_cfg = json.load(f)
