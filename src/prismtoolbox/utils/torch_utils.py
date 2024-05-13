@@ -143,13 +143,10 @@ class BasePatchHandler:
             transform = create_transforms(self.transforms_dict)
         elif self.pretrained_transforms is not None:
             log.info("No pretrained_transforms found, using pretrained transform.")
-            print("test")
             transform = self.pretrained_transforms
         else:
             log.info("No transform provided.")
             transform = None
-        print(transform)
-        print(self.pretrained_transforms)
         dataset = ImageFolder(self.img_folder, transform=transform)
         log.info(f"Created dataset from {self.img_folder} using ImageFolder from torchvision.")
         return dataset
