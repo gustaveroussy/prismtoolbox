@@ -20,9 +20,9 @@ class SlideEmbedder(BaseSlideHandler):
         slide_dir: str,
         slide_ext: str,
         arch_name: str,
-        pretrained_weights: str,
         batch_size: int,
         num_workers: int,
+        pretrained_weights: str | None = None,
         transforms_dict: dict[str, dict[str, any]] | None = None,
         device: str = "cuda",
         engine: str = "openslide",
@@ -38,10 +38,10 @@ class SlideEmbedder(BaseSlideHandler):
             slide_ext: The extension of the slides.
             arch_name: The name of the architecture to use. 
                 See [create_model][prismtoolbox.wsiemb.emb_utils.create_model] for available architectures.
-            pretrained_weights: The path to the pretrained weights or the name of the pretrained weights. See
-                [create_model][prismtoolbox.wsiemb.emb_utils.create_model] for available weights for each architecture.
             batch_size: The batch size to use for the dataloader.
             num_workers: The number of workers to use for the dataloader.
+            pretrained_weights: The path to the pretrained weights or the name of the pretrained weights. See
+                [create_model][prismtoolbox.wsiemb.emb_utils.create_model] for available weights for each architecture.
             transforms_dict: The dictionary of transforms to use.
                 See [create_transforms][prismtoolbox.utils.torch_utils.create_transforms]
                 for more information. If None, the pretrained transforms will be used.
@@ -70,7 +70,7 @@ class SlideEmbedder(BaseSlideHandler):
             embeddings: The list that will contain the extracted embeddings.
             
         """
-        super(SlideEmbedder, self).__init__(
+        super().__init__(
             slide_dir,
             slide_ext,
             batch_size,
@@ -170,9 +170,9 @@ class PatchEmbedder(BasePatchHandler):
         self,
         img_folder: str,
         arch_name: str,
-        pretrained_weights: str,
         batch_size: int,
         num_workers: int,
+        pretrained_weights: str | None = None,
         transforms_dict: dict[str, dict[str, any]] | None = None,
         device: str = "cuda",
         need_login: bool = False,
@@ -183,10 +183,10 @@ class PatchEmbedder(BasePatchHandler):
             img_folder: The directory containing the images of the patches.
             arch_name: The name of the architecture to use. 
                 See [create_model][prismtoolbox.wsiemb.emb_utils.create_model] for available architectures.
-            pretrained_weights: The path to the pretrained weights or the name of the pretrained weights. See
-                [create_model][prismtoolbox.wsiemb.emb_utils.create_model] for available weights for each architecture.
             batch_size: The batch size to use for the dataloader.
             num_workers: The number of workers to use for the dataloader.
+            pretrained_weights: The path to the pretrained weights or the name of the pretrained weights. See
+                [create_model][prismtoolbox.wsiemb.emb_utils.create_model] for available weights for each architecture.
             transforms_dict: The dictionary of transforms to use.
                 See [create_transforms][prismtoolbox.utils.torch_utils.create_transforms] for more information.
                 If None, the pretrained transforms will be used.
@@ -204,7 +204,7 @@ class PatchEmbedder(BasePatchHandler):
             embeddings: The list that will contain the extracted embeddings.
             
         """
-        super(PatchEmbedder).__init__(
+        super().__init__(
             img_folder, batch_size, num_workers, transforms_dict
         )
         self.device = device
@@ -222,12 +222,7 @@ class PatchEmbedder(BasePatchHandler):
         )
         self.model.eval()
         self.model.to(self.device)
-
-        if transforms_dict is None:
-            log.info("No transform provided, using pretrained transform.")
-            self.transform = self.pretrained_transforms
-
-        log.info(f"Transforms created: {self.transform}.")
+        
         self.embeddings = []
 
     def extract_embeddings(self, show_progress: bool = True):

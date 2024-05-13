@@ -37,7 +37,7 @@ class NucleiSegmenter(BaseSlideHandler):
             threshold_overlap=0.3,
             **kwargs_seg_tool,
     ):
-        super(NucleiSegmenter, self).__init__(
+        super().__init__(
             slide_dir,
             slide_ext,
             batch_size,

@@ -94,7 +94,7 @@ class BaseSlideHandler:
         self.patch_level = patch_level
 
         if (patch_size is None or patch_level is None) and coords_dir is None:
-            raise ValueError("no patch size or patch level provided while no coords_dir provided. Please provide either"
+            raise ValueError("no patch size or patch level provided while no coords_dir provided. Please provide either "
                              "coords_dir or patch_size and patch_level.")
 
         self.slides_processed = []
@@ -104,7 +104,7 @@ class BaseSlideHandler:
             log.info("Creating transform from transforms_dict.")
             transform = create_transforms(self.transforms_dict)
         elif self.pretrained_transforms is not None:
-            log.info("No transform provided, using pretrained transform.")
+            log.info("No pretrained_transforms found, using pretrained transform.")
             transform = self.pretrained_transforms
         else:
             log.info("No transform provided.")
@@ -138,7 +138,18 @@ class BasePatchHandler:
         self.transforms_dict = transforms_dict
 
     def create_dataset(self):
-        transform = create_transforms(self.transforms_dict) if self.transforms_dict is not None else None
+        if self.transforms_dict is not None:
+            log.info("Creating transform from transforms_dict.")
+            transform = create_transforms(self.transforms_dict)
+        elif self.pretrained_transforms is not None:
+            log.info("No pretrained_transforms found, using pretrained transform.")
+            print("test")
+            transform = self.pretrained_transforms
+        else:
+            log.info("No transform provided.")
+            transform = None
+        print(transform)
+        print(self.pretrained_transforms)
         dataset = ImageFolder(self.img_folder, transform=transform)
         log.info(f"Created dataset from {self.img_folder} using ImageFolder from torchvision.")
         return dataset
@@ -156,7 +167,7 @@ possible_transforms = {"totensor": ToTensorv2,
                        "resized_crop": transformsv2.RandomResizedCrop,
                        "random_crop": transformsv2.RandomCrop,
                        "center_crop": transformsv2.CenterCrop,
-                       "resize": transformsv2.Resize, }
+                       "resize": transformsv2.Resize,}
 
 
 def create_transforms(transform_dict: dict[str, dict[str, any]]) -> transformsv2.Compose:
