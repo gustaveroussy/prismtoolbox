@@ -26,6 +26,7 @@ pip install 'prismtoolbox[emb, seg]'
 ```
 
 ## Usage
+
 Here's a basic example of how to use PrismToolBox:
 
 ```python
