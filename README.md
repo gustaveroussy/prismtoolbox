@@ -2,6 +2,8 @@
 
 PrismToolBox is a comprehensive toolkit designed to streamline the process of working with digital pathology images. It provides a set of utilities and functionalities that simplify tasks such as reading slides, extracting patches, and embedding slides. It also provides useful functions to import/export data on [QuPath](https://qupath.github.io/).
 
+The toolkit is still under development, and some features may not be fully implemented. If you encounter any issues or have suggestions for improvements, please open an issue or submit a pull request.
+
 ## Features
 
 - **Slide Reading**: Supports multiple backends for reading slides, including OpenSlide and TiffSlide.
