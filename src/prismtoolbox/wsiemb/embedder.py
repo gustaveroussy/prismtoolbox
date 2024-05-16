@@ -168,7 +168,6 @@ class SlideEmbedder(BaseSlideHandler):
 class PatchEmbedder(BasePatchHandler):
     def __init__(
         self,
-        img_folder: str,
         arch_name: str,
         batch_size: int,
         num_workers: int,
@@ -180,7 +179,6 @@ class PatchEmbedder(BasePatchHandler):
         """The PatchEmbedder class is used to extract embeddings from patches extracted as images in a folder.
 
         Args:
-            img_folder: The directory containing the images of the patches.
             arch_name: The name of the architecture to use. 
                 See [create_model][prismtoolbox.wsiemb.emb_utils.create_model] for available architectures.
             batch_size: The batch size to use for the dataloader.
@@ -194,7 +192,6 @@ class PatchEmbedder(BasePatchHandler):
             need_login: Whether to login to the HuggingFace Hub (for Uni and Conch models).
         
         Attributes:
-            img_folder: The directory containing the images of the patches.
             batch_size: The batch size to use for the dataloader.
             num_workers: The number of workers to use for the dataloader.
             transforms_dict: The dictionary of transforms to use.
@@ -205,7 +202,7 @@ class PatchEmbedder(BasePatchHandler):
             
         """
         super().__init__(
-            img_folder, batch_size, num_workers, transforms_dict
+            batch_size, num_workers, transforms_dict
         )
         self.device = device
         
@@ -225,27 +222,33 @@ class PatchEmbedder(BasePatchHandler):
         
         self.embeddings = []
 
-    def extract_embeddings(self, show_progress: bool = True):
+    def extract_embeddings(self, img_folder, show_progress: bool = True):
         """Extract embeddings from the images in the img_folder.
 
         Args:
+            img_folder: A folder containing a series of subfolders, each containing images.
+                For example, img_folder could be a folder where the subfolders correpond to different slides.
             show_progress: Whether to show the progress bar.
         """
-        log.info(f"Extracting embeddings from images in {self.img_folder}.")
-        dataset = self.create_dataset()
+        log.info(f"Extracting embeddings from images in {img_folder}.")
+        dataset = self.create_dataset(img_folder=img_folder)
         dataloader = self.create_dataloader(dataset)
         start_time = time.time()
-        embeddings = []
+        embeddings = [[] for _ in range(len(dataset.classes))]
+        img_ids = []
+        for i in range(len(dataset.classes)):
+            img_ids.append(np.array(dataset.imgs)[np.array(dataset.targets)==i][:,0])
         for imgs, folder_id in tqdm(
             dataloader,
-            desc=f"Extracting embeddings from images in {self.img_folder}",
+            desc=f"Extracting embeddings from images in {img_folder}",
             disable=not show_progress,
         ):
-            log.info(f"Extracting embeddings from folder {folder_id}.")
             imgs = imgs.to(self.device)
             with torch.no_grad():
                 output = self.model(imgs)
-                embeddings.append(output.cpu())
+                for i in range(len(dataset.classes)):
+                    embeddings[i].append(output[folder_id==i].cpu())
         log.info(f"Embedding time: {time.time() - start_time}.")
-        log.info(f"Extracted {len(embeddings)} rom images in {self.img_folder}.")
-        self.embeddings.append(embeddings)
+        log.info(f"Extracted {len(embeddings)} from images in {img_folder}.")
+        self.img_ids.append(img_ids)
+        self.embeddings.append([torch.cat(embedding, dim=0) for embedding in embeddings])

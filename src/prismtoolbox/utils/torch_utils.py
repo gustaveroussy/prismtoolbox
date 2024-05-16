@@ -131,13 +131,12 @@ class BaseSlideHandler:
 
 
 class BasePatchHandler:
-    def __init__(self, img_folder, batch_size, num_workers, transforms_dict=None):
-        self.img_folder = img_folder
+    def __init__(self, batch_size, num_workers, transforms_dict=None):
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.transforms_dict = transforms_dict
 
-    def create_dataset(self):
+    def create_dataset(self, img_folder):
         if self.transforms_dict is not None:
             log.info("Creating transform from transforms_dict.")
             transform = create_transforms(self.transforms_dict)
@@ -147,8 +146,8 @@ class BasePatchHandler:
         else:
             log.info("No transform provided.")
             transform = None
-        dataset = ImageFolder(self.img_folder, transform=transform)
-        log.info(f"Created dataset from {self.img_folder} using ImageFolder from torchvision.")
+        dataset = ImageFolder(img_folder, transform=transform)
+        log.info(f"Created dataset from {img_folder} using ImageFolder from torchvision.")
         return dataset
 
     def create_dataloader(self, dataset):
