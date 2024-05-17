@@ -22,6 +22,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Check commit type
+      if: '!contains(github.ref, ''tags'')'
       id: check-type
       run: |
         COMMIT_MSG=$(git log --format=%B -n 1 ${{ github.event.after }})
@@ -29,6 +30,7 @@ jobs:
         echo "Commit type is '$COMMIT_TYPE'"
         echo "type=$COMMIT_TYPE" >> "$GITHUB_OUTPUT"
     - name: Check if tests should be skipped
+      if: '!contains(github.ref, ''tags'')'
       id: check-skip
       run: |
         COMMIT_TYPE=${{ steps.check-type.outputs.type }}
