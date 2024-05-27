@@ -99,6 +99,22 @@ class SlideEmbedder(BaseSlideHandler):
         self.model.to(self.device)
 
         self.embeddings = []
+        
+    def get_transforms(self):
+        """Get the transforms to use for creating the dataset.
+
+        Returns:
+            The transforms to use when loading the patches.
+        """
+        if self.transforms_dict is not None:
+            transforms = super().get_transforms()
+        elif self.pretrained_transforms is not None:
+            log.info("No transforms dict found, using pretrained transforms.")
+            transforms = self.pretrained_transforms
+        else:
+            log.info("No transforms dict or pretrained transforms found.")
+            transforms = None
+        return transforms
 
     def extract_embeddings(
         self,
@@ -130,7 +146,7 @@ class SlideEmbedder(BaseSlideHandler):
                 embeddings.append(output.cpu())
         log.info(f"Embedding time: {time.time() - start_time}.")
         self.slides_processed.append(slide_name)
-        log.info(f"Extracted {len(embeddings)} patches from {slide_name}.")
+        log.info(f"Extracted embeddings from {len(embeddings)} patches of {slide_name}.")
         self.embeddings.append(torch.cat(embeddings, dim=0))
 
     def save_embeddings(
@@ -222,6 +238,22 @@ class PatchEmbedder(BasePatchHandler):
         
         self.embeddings = []
 
+    def get_transforms(self):
+        """Get the transforms to use for creating the embeddings.
+
+        Returns:
+            The transforms to use when loading the patches.
+        """
+        if self.transforms_dict is not None:
+            super().get_transforms()
+        elif self.pretrained_transforms is not None:
+            log.info("No transforms dict found, using pretrained transforms.")
+            transforms = self.pretrained_transforms
+        else:
+            log.info("No transforms dict or pretrained transforms found.")
+            transforms = None
+        return transforms
+    
     def extract_embeddings(self, img_folder, show_progress: bool = True):
         """Extract embeddings from the images in the img_folder.
 

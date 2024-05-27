@@ -42,7 +42,7 @@ class ClipCustom(nn.Module):
 
 
 class SlideDataset(Dataset):
-    def __init__(self, coords, slide_path, patch_size, level, engine="openslide", transform=None,
+    def __init__(self, coords, slide_path, patch_size, level, engine="openslide", transforms=None,
                  deconvolve_channel=None):
         super(SlideDataset, self).__init__()
         self.coords = coords
@@ -53,7 +53,7 @@ class SlideDataset(Dataset):
 
         self.slide = WSI.read(self.slide_path, engine=self.engine)
 
-        self.transform = ToTensorv2() if transform is None else transform
+        self.transforms = ToTensorv2() if transforms is None else transforms
 
         self.deconvolve_channel = deconvolve_channel
 
@@ -61,10 +61,11 @@ class SlideDataset(Dataset):
         self.slide = WSI.read(self.slide_path, engine=self.engine)
     
     def get_sample_patch(self):
-        transform = ToTensorv2()
         random_idx = np.random.randint(len(self))
         patch = self.slide.read_region(self.coords[random_idx], self.level, (self.patch_size, self.patch_size)).convert("RGB")
-        return transform(patch)
+        if self.transforms:
+            patch = self.transforms(patch)
+        return patch
 
     def __len__(self):
         return len(self.coords)
@@ -75,8 +76,8 @@ class SlideDataset(Dataset):
         if self.deconvolve_channel is not None:
             deconvolve_imgs = deconvolve_stain(patch)
             patch = Image.fromarray(deconvolve_imgs[self.deconvolve_channel])
-        if self.transform:
-            patch = self.transform(patch)
+        if self.transforms:
+            patch = self.transforms(patch)
         return patch, coord
 
 
@@ -98,17 +99,18 @@ class BaseSlideHandler:
                              "coords_dir or patch_size and patch_level.")
 
         self.slides_processed = []
+        
+    def get_transforms(self):
+        if self.transforms_dict is not None:
+            log.info("Creating transforms from transforms dict.")
+            transforms = create_transforms(self.transforms_dict)
+        else:
+            log.info("No transform dict found.")
+            transforms = None
+        return transforms
 
     def create_dataset(self, slide_name, coords=None, deconvolve_channel=None):
-        if self.transforms_dict is not None:
-            log.info("Creating transform from transforms_dict.")
-            transform = create_transforms(self.transforms_dict)
-        elif self.pretrained_transforms is not None:
-            log.info("No pretrained_transforms found, using pretrained transform.")
-            transform = self.pretrained_transforms
-        else:
-            log.info("No transform provided.")
-            transform = None
+        transforms = self.get_transforms()
         if coords is None:
             if self.coords_dir is None:
                 raise ValueError(
@@ -120,34 +122,34 @@ class BaseSlideHandler:
         patch_size = self.patch_size if self.patch_size is not None else attrs['patch_size']
         patch_level = self.patch_level if self.patch_level is not None else attrs['patch_level']
         slide_path = os.path.join(self.slide_dir, f"{slide_name}.{self.slide_ext}")
-        dataset = SlideDataset(coords, slide_path, patch_size, patch_level, self.engine, transform,
+        dataset = SlideDataset(coords, slide_path, patch_size, patch_level, self.engine, transforms,
                                deconvolve_channel)
-        log.info(f"Dataset created for {slide_name}.")
+        log.info(f"Dataset created for {slide_name}, with transforms: {transforms}.")
         return dataset
 
     def create_dataloader(self, dataset):
         return DataLoader(dataset, batch_size=self.batch_size, worker_init_fn=dataset.worker_init,
                           num_workers=self.num_workers)
 
-
 class BasePatchHandler:
     def __init__(self, batch_size, num_workers, transforms_dict=None):
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.transforms_dict = transforms_dict
+    
+    def get_transforms(self):
+        if self.transforms_dict is not None:
+            log.info("Creating transforms from transforms dict.")
+            transforms = create_transforms(self.transforms_dict)
+        else:
+            log.info("No transform dict found.")
+            transforms = None
+        return transforms
 
     def create_dataset(self, img_folder):
-        if self.transforms_dict is not None:
-            log.info("Creating transform from transforms_dict.")
-            transform = create_transforms(self.transforms_dict)
-        elif self.pretrained_transforms is not None:
-            log.info("No pretrained_transforms found, using pretrained transform.")
-            transform = self.pretrained_transforms
-        else:
-            log.info("No transform provided.")
-            transform = None
-        dataset = ImageFolder(img_folder, transform=transform)
-        log.info(f"Created dataset from {img_folder} using ImageFolder from torchvision.")
+        transforms = self.get_transforms()
+        dataset = ImageFolder(img_folder, transform=transforms)
+        log.info(f"Created dataset from {img_folder} using ImageFolder from torchvision, with transforms: {transforms}.")
         return dataset
 
     def create_dataloader(self, dataset):
@@ -166,11 +168,11 @@ possible_transforms = {"totensor": ToTensorv2,
                        "resize": transformsv2.Resize,}
 
 
-def create_transforms(transform_dict: dict[str, dict[str, any]]) -> transformsv2.Compose:
+def create_transforms(transforms_dict: dict[str, dict[str, any]]) -> transformsv2.Compose:
     """Create a torchvision.transforms.Compose object from a dictionary of transforms.
 
     Args:
-        transform_dict: Dictionary of transforms. The keys are the names of the transforms and the values are the
+        transforms_dict: Dictionary of transforms. The keys are the names of the transforms and the values are the
             parameters to pass to the transform as a dictionary. Possible transforms are:
             
             - "totensor": ToTensorv2
@@ -190,9 +192,9 @@ def create_transforms(transform_dict: dict[str, dict[str, any]]) -> transformsv2
     Returns:
         A torchvision.transforms.Compose object.
     """
-    if any(transform_name not in possible_transforms for transform_name in transform_dict):
+    if any(transform_name not in possible_transforms for transform_name in transforms_dict):
         raise ValueError(f"invalid transform name. Possible transforms: {possible_transforms.keys()}")
-    transform = transformsv2.Compose([possible_transforms[transform_name](**transform_params) for transform_name,
-    transform_params in transform_dict.items()])
-    return transform
+    transforms = transformsv2.Compose([possible_transforms[transform_name](**transform_params) for transform_name,
+    transform_params in transforms_dict.items()])
+    return transforms
 
