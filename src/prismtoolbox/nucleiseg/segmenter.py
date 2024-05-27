@@ -63,7 +63,7 @@ class NucleiSegmenter(BaseSlideHandler):
 
     def set_clip_custom_params_on_ex(self, slide_name, coords=None, deconvolve_channel=None):
         dataset = self.create_dataset(
-            slide_name, coords=coords, deconvolve_channel=deconvolve_channel,
+            slide_name, coords=coords, deconvolve_channel=deconvolve_channel, transforms=None,
         )
         sample_patch = dataset.get_sample_patch()
 
@@ -111,34 +111,31 @@ class NucleiSegmenter(BaseSlideHandler):
         log.info(f"Extracted {len(nuclei.geoms)} patches from {slide_name}.")
 
     @staticmethod
-    def _process_mask(coord, labeled_mask):
+    def _process_mask(coord, labeled_mask, border_width=3, min_point_cnt=5):
         nuclei = []
         for nucleus_idx in np.unique(labeled_mask):
             if nucleus_idx == 0:
                 continue
-
-            border_width = 3  # Set the width of the border
 
             canvas = (labeled_mask == nucleus_idx).astype("uint8")
 
             border_mask = np.pad(np.zeros((canvas.shape[0] - 2 * border_width, canvas.shape[1] - 2 * border_width)),
                                  border_width, constant_values=1)
 
-            # if any(canvas[:, 0] + canvas[:, -1] + canvas[0, :] + canvas[-1, :]):
             if np.any((canvas * border_mask) != 0):
                 continue
 
             contours = contour_mask(canvas)
 
             if len(contours) > 1:
-                contours = cv2.convexHull(np.concatenate(contours))
+                contours_nucleus = cv2.convexHull(np.concatenate(contours))
             else:
-                contours = contours[0]
+                contours_nucleus = contours[0]
 
-            if len(contours) < 5:
+            if len(contours_nucleus) < min_point_cnt:
                 continue
             else:
-                nuclei.append(contours + coord)
+                nuclei.append(contours_nucleus + coord)
 
         return nuclei
 
