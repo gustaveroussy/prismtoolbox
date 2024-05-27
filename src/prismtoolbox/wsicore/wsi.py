@@ -842,7 +842,7 @@ class WSI:
                 contour, patch_size=ref_patch_size, center_shift=0.5, mode=contours_mode
             )
             log.info(
-                f"Extracting patches with contour checking function mode {contours_mode}"
+                f"Extracting patches with contour checking function mode {contours_mode}."
             )
         else:
             cont_check_fn = None
@@ -1010,7 +1010,7 @@ class WSI:
             idxs = idxs[selected_idx]
         patch_size = np.ceil(patch_size / downsample_vis).astype(int)
         log.info(
-            f"Stitching {len(idxs)} patches at level {vis_level} with patch size {patch_size},"
+            f"Stitching {len(idxs)} patches at level {vis_level} with patch size {patch_size}, "
             f"with colors {colors is not None}."
         )
         offset = self.ROI[:2] if crop_roi else np.array([0, 0])

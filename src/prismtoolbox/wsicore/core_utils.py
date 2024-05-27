@@ -200,10 +200,10 @@ def floodfill_img(img: np.ndarray, start: tuple[int, int]) -> np.ndarray:
 
 
 def contour_mask(mask: np.ndarray) -> list[np.ndarray]:
-    """Find the contours in a binary floodfilled image with opencv findContours.
+    """Find the contours in a binary image with opencv findContours.
 
     Args:
-        mask: A binary floodfilled image.
+        mask: A binary image.
 
     Returns:
         A list of contours found in the input image with opencv findContours.
