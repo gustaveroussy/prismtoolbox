@@ -428,6 +428,10 @@ class WSI:
                 append_to_existing_file=append_to_existing_file,
             )
         elif file_format == "jpg" or file_format == "png":
+            save_dir = os.path.join(save_dir, self.slide_name)
+            if not os.path.isdir(save_dir):
+                log.warning(f"Folder {save_dir} does not exist, creating new folder...")
+                pathlib.Path(save_dir).mkdir(parents=True, exist_ok=True)
             log.info(
                 f"Saving {len(coords)} patches for slide {self.slide_name} at {save_dir} with {file_format}."
             )
@@ -439,7 +443,7 @@ class WSI:
                 ).convert("RGB")
                 patch.save(
                     os.path.join(
-                        save_dir, f"{self.slide_name}_{coord[0]}_{coord[1]}.{file_format}"
+                        save_dir, f"{coord[0]}_{coord[1]}.{file_format}"
                     )
                 )
         else:
