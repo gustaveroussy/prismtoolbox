@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 from functools import reduce
 from operator import mul
-from timm.models.layers import PatchEmbed
+from timm.layers import PatchEmbed
 from timm.models.vision_transformer import VisionTransformer
 
 from .utils import retrieve_pretrained_weight_transforms_from_dict
