@@ -64,8 +64,8 @@ class TestSlideEmbedder():
         self.embeddings_dir = "./embeddings"
     
     @pytest.mark.parametrize("coord_dir,arch_name,pretrained_weights,transforms_dict,batch_size,num_workers,device,format", [
-        (None,"clam", "IMAGENET1K_V2", {"totensor": {}, "normalize": {"mean": [0.485, 0.456, 0.406], "std": [0.229, 0.224, 0.225]}}, 4, 1, "cuda", "pt"),
-        ("./coords", "uni", None, None, 8, 2, "cuda", "npy")])
+        (None,"clam", "IMAGENET1K_V2", {"totensor": {}, "normalize": {"mean": [0.485, 0.456, 0.406], "std": [0.229, 0.224, 0.225]}}, 4, 1, "cpu", "pt"),
+        ("./coords", "phikon", None, None, 8, 2, "cpu", "npy")])
     def test_slide_embedder(
         self,
         coord_dir,
@@ -108,12 +108,17 @@ class TestSlideEmbedder():
                 slide_embedder.extract_embeddings(slide_name, slide_ext=slide_ext, coords=coords)
                 assert len(slide_embedder.embeddings[i]) == 10
                 assert slide_name in slide_embedder.slides_processed
-                assert slide_embedder.embeddings[i].shape[-1] == 1024
+                if arch_name == "clam":
+                    assert slide_embedder.embeddings[i].shape[-1] == 1024
+                elif arch_name == "phikon":
+                    assert slide_embedder.embeddings[i].shape[-1] == 768
+                else:
+                    raise ValueError(f"Unknown architecture name {arch_name}")
                 # Save the embeddings
                 slide_embedder.save_embeddings(self.embeddings_dir, flush_memory=False, format=format)
                 assert os.path.exists(f"{self.embeddings_dir}/{slide_name}.{format}")
     
-    def test_patch_embedder():
+    def test_patch_embedder(self):
         pass
     
         
