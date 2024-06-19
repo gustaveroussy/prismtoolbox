@@ -1,14 +1,14 @@
+from __future__ import annotations
+
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import to_rgb
 from PIL import Image, ImageOps
-from typing import Tuple, Optional
-
 
 def init_image(
     w: int,
     h: int,
-    color_bakground: Optional[Tuple[int, int, int]] = (255, 255, 255),
+    color_bakground: tuple[int, int, int] = (255, 255, 255),
     mask: bool = False,
 ) -> np.ndarray:
     """
@@ -24,18 +24,33 @@ def init_image(
     else:
         return np.array(Image.new(size=(w, h), mode="RGB", color=color_bakground))
 
+def bbox_from_contours(
+    contours: list[np.ndarray],
+    downsample_factor: int = 1
+) -> tuple[int, int, int, int]:
+    """
+    Compute the bounding box from a set of contours
+    :param contours: list of contours
+    :return: bounding box of the contours
+    """
+    flatten_contours = np.concatenate(contours)
+    x_min, y_min = flatten_contours.min(axis=0).squeeze().astype(int) / downsample_factor
+    x_max, y_max = flatten_contours.max(axis=0).squeeze().astype(int) / downsample_factor
+    return x_min, y_min, x_max, y_max
 
 def bbox_from_coords(
-    coords: np.ndarray, patch_size: Optional[int] = 0
-) -> Tuple[int, int, int, int]:
+    coords: np.ndarray,
+    patch_size: int = 0,
+    downsample_factor: int = 1,
+) -> tuple[int, int, int, int]:
     """
     Compute the bounding box from a set of coordinates
     :param coords: coordinates of the patches
-    :param patch_size: size of the patches
+    :param patch_size: size of the patches (at level extraction)
     :return: bounding box of the patches
     """
-    x_min, y_min = coords.min(axis=0).astype(int)
-    x_max, y_max = coords.max(axis=0).astype(int)
+    x_min, y_min = coords.min(axis=0).astype(int) / downsample_factor
+    x_max, y_max = coords.max(axis=0).astype(int) / downsample_factor
     return x_min, y_min, x_max + patch_size, y_max + patch_size
 
 
