@@ -82,10 +82,9 @@ class SlideDataset(Dataset):
 
 
 class BaseSlideHandler:
-    def __init__(self, slide_dir, slide_ext, batch_size, num_workers, transforms_dict=None, engine="openslide",
+    def __init__(self, slide_dir, batch_size, num_workers, transforms_dict=None, engine="openslide",
                  coords_dir=None, patch_size=None, patch_level=None):
         self.slide_dir = slide_dir
-        self.slide_ext = slide_ext
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.transforms_dict = transforms_dict
@@ -109,7 +108,7 @@ class BaseSlideHandler:
             transforms = None
         return transforms
 
-    def create_dataset(self, slide_name, coords=None, deconvolve_channel=None):
+    def create_dataset(self, slide_name, slide_ext, coords=None, deconvolve_channel=None):
         transforms = self.get_transforms()
         if coords is None:
             if self.coords_dir is None:
@@ -121,7 +120,7 @@ class BaseSlideHandler:
             log.info(f"Coords loaded from h5 file. Found {len(coords)} patches.")
         patch_size = self.patch_size if self.patch_size is not None else attrs['patch_size']
         patch_level = self.patch_level if self.patch_level is not None else attrs['patch_level']
-        slide_path = os.path.join(self.slide_dir, f"{slide_name}.{self.slide_ext}")
+        slide_path = os.path.join(self.slide_dir, f"{slide_name}.{slide_ext}")
         dataset = SlideDataset(coords, slide_path, patch_size, patch_level, self.engine, transforms,
                                deconvolve_channel)
         log.info(f"Dataset created for {slide_name}, with transforms: {transforms}.")
@@ -136,6 +135,7 @@ class BasePatchHandler:
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.transforms_dict = transforms_dict
+        self.images_processed = []
     
     def get_transforms(self):
         if self.transforms_dict is not None:

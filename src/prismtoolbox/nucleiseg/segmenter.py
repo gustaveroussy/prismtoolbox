@@ -21,7 +21,6 @@ class NucleiSegmenter(BaseSlideHandler):
     def __init__(
             self,
             slide_dir,
-            slide_ext,
             model_name,
             pretrained_weights,
             batch_size,
@@ -39,7 +38,6 @@ class NucleiSegmenter(BaseSlideHandler):
     ):
         super().__init__(
             slide_dir,
-            slide_ext,
             batch_size,
             num_workers,
             transforms_dict,
@@ -61,9 +59,9 @@ class NucleiSegmenter(BaseSlideHandler):
         self.threshold_overlap = threshold_overlap
         self.nuclei_seg = []
 
-    def set_clip_custom_params_on_ex(self, slide_name, coords=None, deconvolve_channel=None):
+    def set_clip_custom_params_on_ex(self, slide_name, slide_ext, coords=None, deconvolve_channel=None):
         dataset = self.create_dataset(
-            slide_name, coords=coords, deconvolve_channel=deconvolve_channel, transforms=None,
+            slide_name, slide_ext=slide_ext, coords=coords, deconvolve_channel=deconvolve_channel
         )
         sample_patch = dataset.get_sample_patch()
 
@@ -81,6 +79,7 @@ class NucleiSegmenter(BaseSlideHandler):
     def segment_nuclei(
             self,
             slide_name,
+            slide_ext,
             deconvolve_channel=None,
             coords=None,
             merge=False,
@@ -88,7 +87,7 @@ class NucleiSegmenter(BaseSlideHandler):
     ):
         log.info(f"Extracting embeddings from the patches of {slide_name}.")
         dataset = self.create_dataset(
-            slide_name, coords=coords, deconvolve_channel=deconvolve_channel
+            slide_name, slide_ext=slide_ext, coords=coords, deconvolve_channel=deconvolve_channel
         )
         dataloader = self.create_dataloader(dataset)
         start_time = time.time()
@@ -149,10 +148,10 @@ class NucleiSegmenter(BaseSlideHandler):
         nuclei = solve_conflicts(nuclei.geoms, self.threshold_overlap)
         return nuclei
 
-    def save_nuclei(self, output_directory, flush_memory=True):
+    def save_nuclei(self, output_directory, slide_ext, flush_memory=True):
         for slide_name, nuclei in zip(self.slides_processed, self.nuclei_seg):
             WSI_object = WSI(
-                os.path.join(self.slide_dir, f"{slide_name}.{self.slide_ext}")
+                os.path.join(self.slide_dir, f"{slide_name}.{slide_ext}")
             )
             offset = WSI_object.offset
             output_path = os.path.join(output_directory, f"{slide_name}.geojson")

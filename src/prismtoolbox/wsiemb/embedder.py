@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pathlib
 import torch
 import time
 import os
@@ -18,7 +19,6 @@ class SlideEmbedder(BaseSlideHandler):
     def __init__(
         self,
         slide_dir: str,
-        slide_ext: str,
         arch_name: str,
         batch_size: int,
         num_workers: int,
@@ -35,7 +35,6 @@ class SlideEmbedder(BaseSlideHandler):
 
         Args:
             slide_dir: The directory containing the slides.
-            slide_ext: The extension of the slides.
             arch_name: The name of the architecture to use. 
                 See [create_model][prismtoolbox.wsiemb.emb_utils.create_model] for available architectures.
             batch_size: The batch size to use for the dataloader.
@@ -55,7 +54,6 @@ class SlideEmbedder(BaseSlideHandler):
         
         Attributes:
             slide_dir: The directory containing the slides.
-            slide_ext: The extension of the slides.
             batch_size: The batch size to use for the dataloader.
             num_workers: The number of workers to use for the dataloader.
             transforms_dict: The dictionary of transforms to use.
@@ -72,7 +70,6 @@ class SlideEmbedder(BaseSlideHandler):
         """
         super().__init__(
             slide_dir,
-            slide_ext,
             batch_size,
             num_workers,
             transforms_dict,
@@ -118,7 +115,8 @@ class SlideEmbedder(BaseSlideHandler):
 
     def extract_embeddings(
         self,
-        slide_name: str, 
+        slide_name: str,
+        slide_ext: str,
         coords: np.ndarray | None = None, 
         show_progress: bool = True
     ):
@@ -126,12 +124,13 @@ class SlideEmbedder(BaseSlideHandler):
 
         Args:
             slide_name: The name of the slide to extract the embeddings from (without the extension).
+            slide_ext: The extension of the slide.
             coords: The coordinates of the patches to extract the embeddings from. 
                 If None, the coordinates will be loaded from the hdf5 file located in coords_dir.
             show_progress: Whether to show the progress bar.
         """
         log.info(f"Extracting embeddings from the patches of {slide_name}.")
-        dataset = self.create_dataset(slide_name, coords=coords)
+        dataset = self.create_dataset(slide_name, slide_ext= slide_ext, coords=coords)
         dataloader = self.create_dataloader(dataset)
         start_time = time.time()
         embeddings = []
@@ -151,22 +150,25 @@ class SlideEmbedder(BaseSlideHandler):
 
     def save_embeddings(
         self, 
-        output_directory: str,
+        save_dir: str,
         flush_memory: bool = True,
         format: str = "pt"
     ):
         """Save the extracted embeddings to the chosen format under slide_name.format.
 
         Args:
-            output_directory: The directory where to save the embeddings.
+            save_dir: The path to the directory where to save the embeddings.
             flush_memory: Whether to remove the embeddings from self.embeddings after saving.
             format: The format to save the embeddings in. Possible formats: ['pt', 'npy']
             
         """
+        if not os.path.isdir(save_dir):
+            log.warning(f"Folder {save_dir} does not exist, creating new folder...")
+            pathlib.Path(save_dir).mkdir(parents=True, exist_ok=True)
         if format not in ["pt", "npy"]:
             raise ValueError("invalid format, possible formats: ['pt', 'npy']")
         for slide_name, embeddings in zip(self.slides_processed, self.embeddings):
-            output_path = os.path.join(output_directory, f"{slide_name}.{format}")
+            output_path = os.path.join(save_dir, f"{slide_name}.{format}")
             if format == "pt":
                 torch.save(embeddings, output_path)
             elif format == "npy":
@@ -235,7 +237,7 @@ class PatchEmbedder(BasePatchHandler):
         )
         self.model.eval()
         self.model.to(self.device)
-        
+
         self.embeddings = []
 
     def get_transforms(self):
@@ -259,7 +261,7 @@ class PatchEmbedder(BasePatchHandler):
 
         Args:
             img_folder: A folder containing a series of subfolders, each containing images.
-                For example, img_folder could be a folder where the subfolders correpond to different slides.
+                For example, img_folder could be a folder where the subfolders correspond to different slides.
             show_progress: Whether to show the progress bar.
         """
         log.info(f"Extracting embeddings from images in {img_folder}.")
@@ -282,5 +284,5 @@ class PatchEmbedder(BasePatchHandler):
                     embeddings[i].append(output[folder_id==i].cpu())
         log.info(f"Embedding time: {time.time() - start_time}.")
         log.info(f"Extracted {len(embeddings)} from images in {img_folder}.")
-        self.img_ids.append(img_ids)
+        self.images_processed.append(img_ids)
         self.embeddings.append([torch.cat(embedding, dim=0) for embedding in embeddings])
