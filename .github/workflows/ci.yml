@@ -97,7 +97,7 @@ jobs:
         uses: snok/install-poetry@v1
       - name: Install dependencies if cache does not exist
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-        run: poetry install
+        run: poetry install --extras "emb"
       - name: Deploy doc
         run: poetry run mkdocs gh-deploy --force
 
