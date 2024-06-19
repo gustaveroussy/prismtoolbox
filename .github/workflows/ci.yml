@@ -67,7 +67,7 @@ jobs:
       uses: snok/install-poetry@v1
     - name: Install dependencies if cache does not exist
       if: steps.check-skip.outputs.skip != 'true' && steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-      run: poetry install
+      run: poetry install --extras "emb"
     - name: Tests
       if: steps.check-skip.outputs.skip != 'true'
       run: poetry run pytest
