@@ -2,12 +2,13 @@ import logging
 import os
 import uuid
 import numpy as np
-from shapely import MultiPolygon, Polygon
+import geopandas
+from shapely import MultiPolygon, Polygon, box
 from shapely.geometry import mapping, shape
 from shapely.affinity import translate
 from shapely.ops import unary_union
 from typing import Optional, Tuple, List, Union
-from .data_utils import load_obj_with_json, save_obj_with_json
+from .data_utils import load_obj_with_json, save_obj_with_json, read_json_with_geopandas
 
 
 def contoursToPolygons(
@@ -30,6 +31,8 @@ def contoursToPolygons(
         else:
             result.append(poly)
     polygons = MultiPolygon(result)
+    if not polygons.is_valid:
+        polygons = polygons.buffer(0)
     if merge:
         polygons = unary_union(polygons)
     return polygons
@@ -46,32 +49,20 @@ def PolygonsToContours(polygons: MultiPolygon):
         for poly in polygons.geoms
     ]
 
-
-def read_qupath_annotations(path: str, offset: Optional[Tuple[int, int]] = (0, 0)):
-    """Reads QuPath annotations from a .geojson file.
+def read_qupath_annotations(path: str, offset: Optional[Tuple[int, int]] = (0, 0), class_name: str = "annotation"):
+    """Reads pathologist annotations from a .geojson file.
 
     :param path: path to the .geojson file
     :param offset: optional offset to add to each coordinate in the arrays
-    :return: list of contours
+    :return: 
     """
-    data = load_obj_with_json(path)
-    polygons = []
-    for feature in data["features"]:
-        if feature["geometry"]["type"] == "Polygon":
-            polygons.append(shape(feature["geometry"]))
-        elif feature["geometry"]["type"] == "MultiPolygon":
-            polygons.extend(shape(feature["geometry"]).geoms)
-        else:
-            raise ValueError(
-                "Feature type not recognized in .geojson file, please provide a .geojson file with only "
-                "Polygon or MultiPolygon features."
-            )
+    df = read_json_with_geopandas(path, offset)
+    column_to_select = "classification" if "classification" in df.columns else "objectType"
+    polygons = df.loc[df[column_to_select] == class_name, "geometry"].values
     polygons = MultiPolygon(polygons)
-    polygons = translate(polygons, xoff=offset[0], yoff=offset[1])
     if not polygons.is_valid:
         polygons = polygons.buffer(0)
     return polygons
-
 
 def convert_rgb_to_java_int_signed(rgb: Tuple[int, int, int]) -> int:
     """Converts RGB tuple to Java signed integer.
@@ -94,6 +85,7 @@ def export_polygons_to_qupath(
     label: Optional[str] = None,
     color: Optional[Tuple[int, int, int]] = None,
     append_to_existing_file: Optional[bool] = False,
+    as_feature_collection: Optional[bool] = False,
 ):
     """Exports polygons to a .json or .geojson file.
 
@@ -104,10 +96,10 @@ def export_polygons_to_qupath(
     :param label: optional label of the polygons
     :param color: optional color of the polygons
     :param append_to_existing_file: optional boolean to append the polygons to an existing file
+    :param as_feature_collection: optional boolean to save the polygons as a FeatureCollection
     """
     if isinstance(polygons, Polygon):
         polygons = MultiPolygon([polygons])
-    # features = {"type": "FeatureCollection", "features": []}
     features = []
     properties = {"objectType": object_type}
     if label is not None:
@@ -117,15 +109,14 @@ def export_polygons_to_qupath(
         }
     polygons = translate(polygons, xoff=offset[0], yoff=offset[1])
     for poly in polygons.geoms:
-        # features.append({"type": "Feature", "geometry": mapping(poly)})
-        features.append(
-            {
+       features.append(
+           {
                 "type": "Feature",
                 "id": str(uuid.uuid4()),
                 "geometry": mapping(poly),
                 "properties": properties,
-            }
-        )
+            })
+    features = {"type": "FeatureCollection", "features": features} if as_feature_collection else features
     if os.path.exists(path) and append_to_existing_file:
         previous_features = load_obj_with_json(path)
         if len(previous_features) == 0:
@@ -133,8 +124,10 @@ def export_polygons_to_qupath(
                 "The .geojson file does not contain any features, creating new file."
             )
         else:
-            previous_features.extend(features)
-            # previous_features["features"].extend(features["features"])
+            if as_feature_collection:
+                previous_features["features"].extend(features["features"])
+            else:
+                previous_features.extend(features)
             features = previous_features
     save_obj_with_json(features, path)
 
@@ -172,7 +165,7 @@ def patchesToPolygons(
 ) -> Union[Polygon, MultiPolygon]:
     """Converts patches to shapely polygons.
 
-    :param patches: patches to convert to shapely polygons
+    :param patches: Top left point coordinates of the patches to convert to shapely polygons
     :param patch_size: size of the patches
     :param offset: optional offset to add to each coordinate in the arrays
     :param merge: optional boolean to merge the polygons
@@ -182,16 +175,7 @@ def patchesToPolygons(
     ref_patch_size = patch_size * patch_downsample
     for patch in patches:
         x, y = patch
-        polygons.append(
-            Polygon(
-                [
-                    (x, y),
-                    (x + ref_patch_size, y),
-                    (x + ref_patch_size, y + ref_patch_size),
-                    (x, y + ref_patch_size),
-                ]
-            )
-        )
+        polygons.append(box(x, y, x + ref_patch_size, y + ref_patch_size, ccw=False))
     polygons = MultiPolygon(polygons)
     if merge:
         polygons = unary_union(polygons)

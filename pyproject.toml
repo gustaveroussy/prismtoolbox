@@ -36,6 +36,7 @@ umap-learn = {extras = ["plot"], version = "^0.5.5"}
 cellpose = {version = "^3.0.7", optional = true}
 dask = {extras = ["dataframe"], version = "^2024.3.1", optional = true}
 ipywidgets = { version = "^8.1.2", optional = true }
+geopandas = {version = "^1.0.1", optional = true}
 
 [tool.poetry.group.dev.dependencies]
 black = "^22.8.0"
@@ -52,7 +53,8 @@ pyment = "^0.3.3"
 pytest-subtests = "^0.12.1"
 
 [tool.poetry.extras]
-emb = ["torch", "torchvision", "tqdm", "transformers", "timm", "scikit-learn", "huggingface-hub", "umap-learn", "dask"]
+emb = ["torch", "torchvision", "tqdm", "transformers", "timm", "scikit-learn", 
+"huggingface-hub", "umap-learn", "dask", "geopandas"]
 seg = ["torch",  "torchvision", "cellpose", "ipywidgets"]
 
 [build-system]
