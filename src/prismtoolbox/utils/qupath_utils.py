@@ -10,6 +10,7 @@ from shapely.ops import unary_union
 from typing import Optional, Tuple, List, Union
 from .data_utils import load_obj_with_json, save_obj_with_json, read_json_with_geopandas
 
+log = logging.getLogger(__name__)
 
 def contoursToPolygons(
     contours: List[np.ndarray], merge: Optional[bool] = False
@@ -49,15 +50,17 @@ def PolygonsToContours(polygons: MultiPolygon):
         for poly in polygons.geoms
     ]
 
-def read_qupath_annotations(path: str, offset: Optional[Tuple[int, int]] = (0, 0), class_name: str = "annotation"):
+def read_qupath_annotations(path: str, offset: Optional[Tuple[int, int]] = (0, 0), class_name: str = "annotation",
+                            column_to_select: str = "objectType"):
     """Reads pathologist annotations from a .geojson file.
 
     :param path: path to the .geojson file
     :param offset: optional offset to add to each coordinate in the arrays
+    :param class_name: name of the class to select
+    :param column_to_select: optional column to select
     :return: 
     """
     df = read_json_with_geopandas(path, offset)
-    column_to_select = "classification" if "classification" in df.columns else "objectType"
     polygons = df.loc[df[column_to_select] == class_name, "geometry"].values
     polygons = MultiPolygon(polygons)
     if not polygons.is_valid:
@@ -120,7 +123,7 @@ def export_polygons_to_qupath(
     if os.path.exists(path) and append_to_existing_file:
         previous_features = load_obj_with_json(path)
         if len(previous_features) == 0:
-            logging.warning(
+            log.warning(
                 "The .geojson file does not contain any features, creating new file."
             )
         else:

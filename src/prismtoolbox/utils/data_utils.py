@@ -86,5 +86,5 @@ def read_json_with_geopandas(file_path: str, offset: tuple[int, int] = (0, 0)) -
     if not df.is_valid.any():
         df.loc[~df.is_valid,:] = df.loc[~df.is_valid, :].buffer(0)
     if "classification" in df.columns:
-        df["classification"] = df["classification"].apply(lambda x: x["name"])
+        df["classification"] = df["classification"].apply(lambda x: x["name"] if type(x) == dict else x)
     return df
