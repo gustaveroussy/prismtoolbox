@@ -120,8 +120,8 @@ class WSI:
         Returns:
             A tuple (slide name, slide ext).
         """
-        slide_ext = re.search(r"(?<=\.)\w+$", slide_path).group(0)
-        slide_name = re.search(r"[^/]+(?=\.\w+$)", slide_path).group(0)
+        slide_ext = re.search(r"(?<=\.)[\w\.]+$", slide_path).group(0)
+        slide_name = re.search(r"([^/]+?)(?=\.[\w\.]+$)", slide_path).group(0)
         return slide_name, slide_ext
 
     @staticmethod
@@ -629,26 +629,21 @@ class WSI:
             )
             return
 
-    def apply_pathologist_annotations(self, path: str) -> None:
-        """Apply pathologist annotations to the tissue contours. Requires the tissue
-        contours to be set for the slide beforehand with the
-        [detect_tissue][prismtoolbox.wsicore.WSI.detect_tissue] method.
+    def apply_pathologist_annotations(self, path: str, class_name: str = "annotation", column_to_select: str = "objectType") -> None:
+        """Apply pathologist annotations to the tissue contours by intersecting the annotations
+        with the tissue contours. Requires the tissue contours to be set for the slide beforehand 
+        with the [detect_tissue][prismtoolbox.wsicore.WSI.detect_tissue] method.
 
         Args:
             path: The path to the .geojson file containing the annotations extracted from QuPath.
+            class_name: The class name to use for selecting the annotations to apply.
+            column_to_select: The column to select in the GeoDataFrame.
         """
         assert (
             self.tissue_contours is not None
         ), "No tissue contours found for the slide, please run the detect_tissue method first"
-        offset = (
-            (
-                int(self.properties[f"{self.engine}.bounds-x"]),
-                int(self.properties[f"{self.engine}.bounds-y"]),
-            )
-            if "{self.engine}.bounds-x" in self.properties
-            else (0, 0)
-        )
-        pathologist_annotations = read_qupath_annotations(path, offset=offset)
+        offset = (-self.offset[0], -self.offset[1])
+        pathologist_annotations = read_qupath_annotations(path, offset=offset, class_name=class_name, column_to_select=column_to_select)
         polygons = contoursToPolygons(self.tissue_contours)
         intersection = intersectionPolygons(polygons, pathologist_annotations)
         self.tissue_contours = PolygonsToContours(intersection)
@@ -724,15 +719,15 @@ class WSI:
                 log.info(f"Processing ROI of dimensions: {roi_dim}")
                 valid_coords.extend(
                     self.extract_patches_roi(
-                        roi_dim,
                         patch_level,
                         patch_size,
                         step_size,
+                        roi_dim,
                         use_padding,
                         cont,
                         contours_mode,
-                        rgb_threshs,
-                        percentages,
+                        rgb_threshs=rgb_threshs,
+                        percentages=percentages,
                     )
                 )
             valid_coords = np.array(valid_coords)
@@ -742,10 +737,10 @@ class WSI:
             roi_dim = self.ROI[0], self.ROI[1], self.ROI_width, self.ROI_height
             log.info("Processing ROI of dimensions:", roi_dim)
             valid_coords = self.extract_patches_roi(
-                roi_dim,
                 patch_level,
                 patch_size,
                 step_size,
+                roi_dim,
                 use_padding,
                 rgb_threshs=rgb_threshs,
                 percentages=percentages,
@@ -754,10 +749,10 @@ class WSI:
             roi_dim = 0, 0, self.level_dimensions[0][0], self.level_dimensions[0][1]
             log.info("Processing ROI of dimensions:", roi_dim)
             valid_coords = self.extract_patches_roi(
-                roi_dim,
                 patch_level,
                 patch_size,
                 step_size,
+                roi_dim,
                 use_padding,
                 rgb_threshs=rgb_threshs,
                 percentages=percentages,
@@ -782,36 +777,42 @@ class WSI:
             )
             self.coords = valid_coords
             self.coords_attrs = attr
-
+            
     def extract_patches_roi(
         self,
-        roi_dim: tuple[int, int, int, int],
         patch_level: int,
         patch_size: int,
-        step_size: int,
+        step_size: int | None = None,
+        roi_dim: tuple[int, int, int, int] | None = None,
         use_padding: bool = True,
         contour: np.ndarray | None = None,
         contours_mode: str | None = None,
+        coord_candidates: np.ndarray | None = None,
         rgb_threshs: tuple[int, int] = (2, 220),
         percentages: tuple[float, float] = (0.6, 0.9),
+        return_indices: bool = False,
     ) -> np.ndarray:
         """Extract valid patches from a region of interest, i.e if the patch is not
         black or white and is within the region of interest/contours if relevant).
 
         Args:
-            roi_dim: The top-left corner coordinates and dimensions of the region of interest.
             patch_level: The level at which the patches should be extracted.
             patch_size: The size of the patches to extract (assumed to be square).
             step_size: The step size to use for the sliding window.
+            roi_dim: The top-left corner coordinates and dimensions of the region of interest. Must be provided if
+                coord_candidates is set to None.
             use_padding: Set to True to use padding for the extraction.
             contour: The tissue contour to use for the extraction. If set to None, will not check if patches are within
                 a contour.
             contours_mode: The mode for the contour checking function.
                 See [IsInContour][prismtoolbox.wsicore.core_utils.IsInContour] for more details. Must be provided
-                if mode is set to contours. Otherwise, will not check if patches are within the contours
+                if mode is set to contours. Otherwise, will not check if patches are within the contours.
+            coord_candidates: Precomputed candidate coordinates for the patches. If set to None, will compute the
+                candidate coordinates based on the ROI dimensions and the step size.
             rgb_threshs: The tuple of thresholds for the RGB channels (black threshold, white threshold).
             percentages: The tuple of percentages of pixels below/above the thresholds to consider the patch as
                 black/white.
+            return_indices: Set to True to return the indices of the valid coordinates.
 
         Returns:
             An array of valid coordinates for the patches (i.e. coordinates of the top-left corner of the patches).
@@ -820,26 +821,30 @@ class WSI:
             "A contour mode must be provided if patch "
             "extraction mode is set to contours"
         )
-        start_x, start_y, w, h = roi_dim
-
+        assert (roi_dim is not None and step_size is not None) or coord_candidates is not None, (
+            "Either (roi_dim and step_size) or coord_candidates must be provided"
+        )
         patch_downsample = int(self.level_downsamples[patch_level])
         ref_patch_size = patch_size * patch_downsample
+        
+        if coord_candidates is None:
+            start_x, start_y, w, h = roi_dim
 
-        img_w, img_h = self.level_dimensions[0]
+            img_w, img_h = self.level_dimensions[0]
 
-        if use_padding:
-            stop_y = start_y + h
-            stop_x = start_x + w
-        else:
-            stop_y = min(start_y + h, img_h - ref_patch_size + 1)
-            stop_x = min(start_x + w, img_w - ref_patch_size + 1)
+            if use_padding:
+                stop_y = start_y + h
+                stop_x = start_x + w
+            else:
+                stop_y = min(start_y + h, img_h - ref_patch_size + 1)
+                stop_x = min(start_x + w, img_w - ref_patch_size + 1)
 
-        step_size = step_size * patch_downsample
+            step_size = step_size * patch_downsample
 
-        x_range = np.arange(start_x, stop_x, step=step_size)
-        y_range = np.arange(start_y, stop_y, step=step_size)
-        x_coords, y_coords = np.meshgrid(x_range, y_range, indexing="ij")
-        coord_candidates = np.array([x_coords.flatten(), y_coords.flatten()]).transpose()
+            x_range = np.arange(start_x, stop_x, step=step_size)
+            y_range = np.arange(start_y, stop_y, step=step_size)
+            x_coords, y_coords = np.meshgrid(x_range, y_range, indexing="ij")
+            coord_candidates = np.array([x_coords.flatten(), y_coords.flatten()]).transpose()
 
         if contour is not None:
             cont_check_fn = IsInContour(
@@ -866,14 +871,18 @@ class WSI:
         ]
         valid_coords = pool.starmap(WSI.process_coord_candidate, iterable)
         pool.close()
-
-        valid_coords = np.array([coord for coord in valid_coords if coord is not None])
-
+        
+        valid_indices = [i for i, coord in enumerate(valid_coords) if coord is not None]
+        valid_coords = np.array([coord_candidates[i] for i in valid_indices])
+        
         log.info(
             f"Identified {len(valid_coords)}  valid coordinates in the ROI {roi_dim}."
         )
-
-        return valid_coords
+        
+        if return_indices:
+            return valid_coords, valid_indices
+        else:
+            return valid_coords
 
     def visualize(
         self,
@@ -883,6 +892,7 @@ class WSI:
         line_thickness: int = 500,
         max_size: int | None = None,
         number_contours: bool = False,
+        black_white: bool = False,
         view_slide_only: bool = False,
     ) -> Image.Image:
         """Visualize the slide with or without the contours of the tissue.
@@ -895,16 +905,23 @@ class WSI:
             line_thickness: The thickness to use for the contours
             max_size: The maximum size for the visualization for the width or height of the image.
             number_contours: Set to True to number the contours.
+            black_white: Set to True to visualize a binary mask of the contoured tissue.
             view_slide_only: Set to True to visualize the slide only (without the contours).
 
         Returns:
             A PIL image of the visualization.
         """
+        assert line_thickness > 0, "line_thickness must be greater than 0"
+        
         scale = 1 / self.level_downsamples[vis_level]
-
-        img = np.array(self.create_thumbnail(vis_level, crop_roi))
-
-        line_thickness = int(line_thickness * scale)
+        
+        if black_white:
+            img = np.zeros_like(self.create_thumbnail(vis_level, crop_roi), dtype="uint8")
+            line_thickness = -1
+            contours_color = (1, 1, 1)
+        else:
+            img = np.array(self.create_thumbnail(vis_level, crop_roi))
+            line_thickness = int(line_thickness * scale)
 
         if not view_slide_only:
             assert len(self.tissue_contours) > 0, (
@@ -913,7 +930,6 @@ class WSI:
             offset = self.ROI[:2] if crop_roi else np.array([0, 0])
             contours = [cont - offset for cont in self.tissue_contours]
             contours = self.scale_contours(contours, scale)
-            line_thickness = int(line_thickness * scale)
             if len(contours) > 0:
                 if not number_contours:
                     cv2.drawContours(
@@ -949,6 +965,9 @@ class WSI:
                         )
 
         img = Image.fromarray(img)
+        
+        if black_white:
+            img = img.convert("L")
 
         w, h = img.size
 
