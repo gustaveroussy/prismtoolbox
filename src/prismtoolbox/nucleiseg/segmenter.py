@@ -57,7 +57,7 @@ class NucleiSegmenter(BaseSlideHandler):
         self.deconvolve_channel = deconvolve_channel
         self.deconvole_matrix = deconvolve_matrix
         self.threshold_overlap = threshold_overlap
-        self.nuclei_seg = []
+        self.nuclei_seg = {}
 
     def set_clip_custom_params_on_ex(self, slide_name, slide_ext, coords=None, deconvolve_channel=None):
         dataset = self.create_dataset(
@@ -105,8 +105,7 @@ class NucleiSegmenter(BaseSlideHandler):
             masks.extend(zip(coord.numpy(), output))
         log.info(f"Embedding time: {time.time() - start_time}.")
         nuclei = self.process_masks(masks, merge)
-        self.slides_processed.append(slide_name)
-        self.nuclei_seg.append(nuclei)
+        self.nuclei_seg[slide_name] = nuclei
         log.info(f"Extracted {len(nuclei.geoms)} patches from {slide_name}.")
 
     @staticmethod
@@ -149,7 +148,7 @@ class NucleiSegmenter(BaseSlideHandler):
         return nuclei
 
     def save_nuclei(self, output_directory, slide_ext, flush_memory=True):
-        for slide_name, nuclei in zip(self.slides_processed, self.nuclei_seg):
+        for slide_name, nuclei in self.nuclei_seg.items():
             WSI_object = WSI(
                 os.path.join(self.slide_dir, f"{slide_name}.{slide_ext}")
             )
