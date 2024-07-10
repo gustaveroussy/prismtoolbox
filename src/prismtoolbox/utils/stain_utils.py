@@ -15,7 +15,7 @@ def deconvolve_stain(img, conv_matrix="HE"):
     elif conv_matrix == "IHC":
         conv_matrix = skcolor.hdx_from_rgb
     elif conv_matrix == "IHC_custom": # to fix
-        conv_matrix = np.lubgalg.inv(conv_matrix)
+        conv_matrix = np.linalg.inv(conv_matrix)
     else:
         raise ValueError("conv_matrix must be 'HE', 'IHC' or 'IHC_custom'")
     deconvole_img = skcolor.separate_stains(img, conv_matrix)
