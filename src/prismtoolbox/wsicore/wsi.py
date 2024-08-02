@@ -10,8 +10,6 @@ import multiprocessing as mp
 
 import pandas as pd
 import cv2
-import openslide
-import tiffslide
 import numpy as np
 from PIL import Image
 
@@ -125,7 +123,7 @@ class WSI:
         return slide_name, slide_ext
 
     @staticmethod
-    def read(slide_path: str, engine: str) -> openslide.OpenSlide | tiffslide.TiffSlide:
+    def read(slide_path: str, engine: str):
         """Read a slide with a given engine.
 
         Args:
@@ -137,8 +135,10 @@ class WSI:
             A slide object.
         """
         if engine == "openslide":
+            import openslide
             slide = openslide.OpenSlide(slide_path)
         elif engine == "tiffslide":
+            import tiffslide
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", category=UserWarning)
                 slide = tiffslide.TiffSlide(slide_path)
