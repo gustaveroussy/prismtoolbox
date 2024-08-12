@@ -27,7 +27,7 @@ class TestWSI():
     def setup_class(self) -> None:
         os.chdir(os.path.dirname(os.path.abspath(__file__)))
         self.urls = ["https://openslide.cs.cmu.edu/download/openslide-testdata/Aperio/CMU-1.svs",
-                     "https://openslide.cs.cmu.edu/download/openslide-testdata/Hamamatsu/OS-2.ndpi"]
+                     "https://openslide.cs.cmu.edu/download/openslide-testdata/Hamamatsu/OS-3.ndpi"]
         self.engines = ["openslide", "tiffslide"]
         self.ROIs = [[2064, 12192, 22128, 32208], [43392, 19072, 96128, 72192]]
         self.wsi_paths = []
@@ -52,7 +52,7 @@ class TestWSI():
     def test_read(self, subtests):
         expected_values = {
             "CMU-1": {"level_count": 3, "instance": openslide.OpenSlide},
-            "OS-2": {"level_count": 10, "instance": tiffslide.TiffSlide}
+            "OS-3": {"level_count": 10, "instance": tiffslide.TiffSlide}
         }
         for i in range(len(self.WSI_objects)):
             with subtests.test(msg=f"Test slide {os.path.basename(self.wsi_paths[i])}"):
