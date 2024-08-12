@@ -644,7 +644,7 @@ class WSI:
         ), "No tissue contours found for the slide, please run the detect_tissue method first"
         offset = (-self.offset[0], -self.offset[1])
         pathologist_annotations = read_qupath_annotations(path, offset=offset, class_name=class_name, column_to_select=column_to_select)
-        polygons = contoursToPolygons(self.tissue_contours)
+        polygons = contoursToPolygons(self.tissue_contours, make_valid=False)
         intersection = intersectionPolygons(polygons, pathologist_annotations)
         self.tissue_contours = PolygonsToContours(intersection)
 

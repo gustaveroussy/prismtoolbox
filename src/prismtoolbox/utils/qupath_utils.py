@@ -2,7 +2,6 @@ import logging
 import os
 import uuid
 import numpy as np
-import geopandas
 from shapely import MultiPolygon, Polygon, box
 from shapely.geometry import mapping, shape
 from shapely.affinity import translate
@@ -13,12 +12,13 @@ from .data_utils import load_obj_with_json, save_obj_with_json, read_json_with_g
 log = logging.getLogger(__name__)
 
 def contoursToPolygons(
-    contours: List[np.ndarray], merge: Optional[bool] = False
+    contours: List[np.ndarray], merge: Optional[bool] = False, make_valid: Optional[bool] = False,
 ) -> Union[Polygon, MultiPolygon]:
     """Converts list of arrays to shapely polygons.
 
     :param contours: list of contours to convert to shapely polygons
     :param merge: optional boolean to merge the polygons
+    :param make_valid: optional boolean to enforce validity of the polygons
     :return: MultiPolygon object containing the polygons created from the arrays
     """
     polygons = [Polygon(contour.squeeze()).buffer(0) for contour in contours]
@@ -31,7 +31,7 @@ def contoursToPolygons(
         else:
             result.append(poly)
     polygons = MultiPolygon(result)
-    if not polygons.is_valid:
+    if make_valid and not polygons.is_valid:
         polygons = polygons.buffer(0)
     if merge:
         polygons = unary_union(polygons)
@@ -57,10 +57,17 @@ def read_qupath_annotations(path: str, offset: Optional[Tuple[int, int]] = (0, 0
     :param offset: optional offset to add to each coordinate in the arrays
     :param class_name: name of the class to select
     :param column_to_select: optional column to select
-    :return: 
+    :return: MultiPolygon object containing the polygons of the selected class.
     """
     df = read_json_with_geopandas(path, offset)
-    polygons = df.loc[df[column_to_select] == class_name, "geometry"].values
+    polygons = []
+    for poly in df.loc[df[column_to_select] == class_name, "geometry"].values:
+        if poly.geom_type == "Polygon":
+            polygons.append(poly)
+        elif poly.geom_type == "MultiPolygon":
+            polygons.extend(poly.geoms)
+        else:
+            raise ValueError("Geometry type not supported.")
     polygons = MultiPolygon(polygons)
     if not polygons.is_valid:
         polygons = polygons.buffer(0)
