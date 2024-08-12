@@ -1,7 +1,9 @@
+import logging
 import torch.nn as nn
 from functools import partial
 from transformers import AutoImageProcessor, ViTModel
 
+log = logging.getLogger(__name__)
 
 class Phikon(nn.Module):
     def __init__(self) -> None:
@@ -15,6 +17,8 @@ class Phikon(nn.Module):
 
 
 def create_phikon_embedder(weights=None):
+    if weights is not None:
+        log.warning("Weights are not used in this model, they will be ignored.")
     model = Phikon()
     pretrained_transforms = partial(
         AutoImageProcessor.from_pretrained("owkin/phikon"), return_tensors="pt"

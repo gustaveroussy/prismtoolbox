@@ -1,3 +1,4 @@
+import logging
 import json
 import torch
 import torch.nn as nn
@@ -6,6 +7,7 @@ from pathlib import Path
 from huggingface_hub import hf_hub_download
 from .coca_model import CoCa, resize_pos_embed
 
+log = logging.getLogger(__name__)
 CFG_FILE = Path(__file__).parent / "config.json"
 
 
@@ -37,6 +39,8 @@ class ConchModel(nn.Module):
 
 
 def create_conch_embedder(weights=None):
+    if weights is not None:
+        log.warning("Weights are not used in this model, they will be ignored.")
     checkpoint_path = "hf_hub:MahmoodLab/conch"
     with open(CFG_FILE, "r") as f:
         model_cfg = json.load(f)
