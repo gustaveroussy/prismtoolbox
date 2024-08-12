@@ -250,7 +250,7 @@ class TestSlideEmbedder():
             slide_name, _ = os.path.basename(slide_path).split(".")
             with subtests.test(msg=f"Test slide {slide_name}"):
                 slide_embedder = self.slide_embedders[i]
-                slide_embedder.save_embeddings(self.embeddings_dir, format=format)
+                slide_embedder.save_embeddings(self.embeddings_dir, format=format, merge=merge)
                 if merge:
                     assert os.path.exists(f"{self.embeddings_dir}/{slide_name}.{format}")
                     emb = load_embeddings(f"{self.embeddings_dir}/{slide_name}.{format}", format)
@@ -260,4 +260,4 @@ class TestSlideEmbedder():
                     for suffix in ["model_based", "cell_based", "stain_based"]:
                         assert os.path.exists(f"{self.embeddings_dir}/{slide_name}_{suffix}.{format}")
                         emb_files.append(load_embeddings(f"{self.embeddings_dir}/{slide_name}_{suffix}.{format}", format))
-                    assert all([len(emb) == self.n_samples_coords for emb in emb_files])        
+                    assert all([len(emb) == self.n_samples_coords for emb in emb_files])    
