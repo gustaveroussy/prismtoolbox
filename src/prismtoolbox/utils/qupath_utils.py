@@ -18,7 +18,6 @@ def contoursToPolygons(
     """Converts list of arrays to shapely polygons.
 
     :param contours: list of contours to convert to shapely polygons
-    :param offset: optional offset to add to each value in the arrays
     :param merge: optional boolean to merge the polygons
     :return: MultiPolygon object containing the polygons created from the arrays
     """
@@ -170,7 +169,6 @@ def patchesToPolygons(
 
     :param patches: Top left point coordinates of the patches to convert to shapely polygons
     :param patch_size: size of the patches
-    :param offset: optional offset to add to each coordinate in the arrays
     :param merge: optional boolean to merge the polygons
     :return: MultiPolygon object containing the polygons created from the patches
     """
