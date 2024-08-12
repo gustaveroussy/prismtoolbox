@@ -12,7 +12,7 @@ from PIL import Image
 
 from .data_utils import read_h5_file
 from prismtoolbox import WSI
-from prismtoolbox.utils.stain_utils import deconvolve_stain
+from prismtoolbox.utils.stain_utils import deconvolve_img
 
 log = logging.getLogger(__name__)
 
@@ -42,20 +42,26 @@ class ClipCustom(nn.Module):
 
 
 class SlideDataset(Dataset):
-    def __init__(self, coords, slide_path, patch_size, level, engine="openslide", transforms=None,
-                 deconvolve_channel=None):
+    def __init__(self, coords, slide_path, patch_size, level, downsample, engine="openslide", transforms=None,
+                 deconvolve_matrix=None, deconvolve_channel=None, coords_only=False):
         super(SlideDataset, self).__init__()
         self.coords = coords
         self.slide_path = slide_path
         self.patch_size = patch_size
         self.level = level
+        self.downsample = downsample
         self.engine = engine
-
-        self.slide = WSI.read(self.slide_path, engine=self.engine)
+        
+        WSI_object = WSI(self.slide_path, engine=self.engine)
+        self.slide = WSI_object.slide
+        self.slide_properties = WSI_object.properties
+        self.slide_offset = WSI_object.offset
 
         self.transforms = ToTensorv2() if transforms is None else transforms
 
+        self.deconvolve_matrix = deconvolve_matrix
         self.deconvolve_channel = deconvolve_channel
+        self.coords_only = coords_only
 
     def worker_init(self, worker_id):
         self.slide = WSI.read(self.slide_path, engine=self.engine)
@@ -72,10 +78,12 @@ class SlideDataset(Dataset):
 
     def __getitem__(self, idx):
         coord = self.coords[idx]
+        if self.coords_only:
+            return coord
         patch = self.slide.read_region(coord, self.level, (self.patch_size, self.patch_size)).convert("RGB")
-        if self.deconvolve_channel is not None:
-            deconvolve_imgs = deconvolve_stain(patch)
-            patch = Image.fromarray(deconvolve_imgs[self.deconvolve_channel])
+        if self.deconvolve_channel is not None and self.deconvolve_matrix is not None:
+            stain_imgs = deconvolve_img(patch, self.deconvolve_matrix)
+            patch = Image.fromarray(stain_imgs[self.deconvolve_channel])
         if self.transforms:
             patch = self.transforms(patch)
         return patch, coord
@@ -83,7 +91,7 @@ class SlideDataset(Dataset):
 
 class BaseSlideHandler:
     def __init__(self, slide_dir, batch_size, num_workers, transforms_dict=None, engine="openslide",
-                 coords_dir=None, patch_size=None, patch_level=None):
+                 coords_dir=None, patch_size=None, patch_level=None, patch_downsample=None):
         self.slide_dir = slide_dir
         self.batch_size = batch_size
         self.num_workers = num_workers
@@ -92,12 +100,7 @@ class BaseSlideHandler:
         self.coords_dir = coords_dir
         self.patch_size = patch_size
         self.patch_level = patch_level
-
-        if (patch_size is None or patch_level is None) and coords_dir is None:
-            raise ValueError("no patch size or patch level provided while no coords_dir provided. Please provide either "
-                             "coords_dir or patch_size and patch_level.")
-
-        self.slides_processed = []
+        self.patch_downsample = patch_downsample
         
     def get_transforms(self):
         if self.transforms_dict is not None:
@@ -108,8 +111,9 @@ class BaseSlideHandler:
             transforms = None
         return transforms
 
-    def create_dataset(self, slide_name, slide_ext, coords=None, deconvolve_channel=None):
-        transforms = self.get_transforms()
+    def create_dataset(self, slide_name, slide_ext, coords=None, deconvolve_matrix=None, deconvolve_channel=None, coords_only=False,
+                       no_transforms=False):
+        transforms = self.get_transforms() if not no_transforms else None
         if coords is None:
             if self.coords_dir is None:
                 raise ValueError(
@@ -118,24 +122,30 @@ class BaseSlideHandler:
             h5_path = os.path.join(self.coords_dir, f"{slide_name}.h5")
             coords, attrs = read_h5_file(h5_path, 'coords')
             log.info(f"Coords loaded from h5 file. Found {len(coords)} patches.")
+        else:
+            if self.patch_size is None or self.patch_level is None or self.patch_downsample is None:
+                raise ValueError("no patch size or patch level or patch downsample provided. Please provide either "
+                                 "coords_dir or patch_size and patch_level and patch_downsample.")
         patch_size = self.patch_size if self.patch_size is not None else attrs['patch_size']
         patch_level = self.patch_level if self.patch_level is not None else attrs['patch_level']
+        patch_downsample = self.patch_downsample if self.patch_downsample is not None else attrs['downsample']
         slide_path = os.path.join(self.slide_dir, f"{slide_name}.{slide_ext}")
-        dataset = SlideDataset(coords, slide_path, patch_size, patch_level, self.engine, transforms,
-                               deconvolve_channel)
+        dataset = SlideDataset(coords, slide_path, patch_size, patch_level, patch_downsample,
+                               self.engine, transforms, deconvolve_matrix, deconvolve_channel, coords_only)
         log.info(f"Dataset created for {slide_name}, with transforms: {transforms}.")
         return dataset
 
-    def create_dataloader(self, dataset):
-        return DataLoader(dataset, batch_size=self.batch_size, worker_init_fn=dataset.worker_init,
-                          num_workers=self.num_workers)
+    def create_dataloader(self, dataset, batch_size=None, num_workers=None):
+        batch_size = self.batch_size if batch_size is None else batch_size
+        num_workers = self.num_workers if num_workers is None else num_workers
+        return DataLoader(dataset, batch_size=batch_size, worker_init_fn=dataset.worker_init,
+                          num_workers=num_workers)
 
 class BasePatchHandler:
     def __init__(self, batch_size, num_workers, transforms_dict=None):
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.transforms_dict = transforms_dict
-        self.images_processed = []
     
     def get_transforms(self):
         if self.transforms_dict is not None:
@@ -152,8 +162,9 @@ class BasePatchHandler:
         log.info(f"Created dataset from {img_folder} using ImageFolder from torchvision, with transforms: {transforms}.")
         return dataset
 
-    def create_dataloader(self, dataset):
-        return DataLoader(dataset, batch_size=self.batch_size, num_workers=self.num_workers)
+    def create_dataloader(self, dataset, batch_size=None, num_workers=None):
+        batch_size = self.batch_size if batch_size is None else batch_size
+        return DataLoader(dataset, batch_size=batch_size, num_workers=num_workers)
 
 
 possible_transforms = {"totensor": ToTensorv2,
