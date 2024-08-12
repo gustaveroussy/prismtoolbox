@@ -69,26 +69,25 @@ def get_colors_from_cmap(cmap_name, n_colors, scale=255):
         return colors_from_cmap
 
 
-def plot_scatter(tx, ty, labels, cmap):
-    colors = get_colors_from_cmap(cmap, len(np.unique(labels)), scale=1)
-
+def plot_scatter(tx, ty, cmap=None, labels=None):
     fig = plt.figure()
     ax = fig.add_subplot(111)
+    
+    if labels is None:
+        ax.scatter(tx, ty)
+    else:
+        if cmap is None:
+            cmap = "Set1"
+        colors = get_colors_from_cmap(cmap, len(np.unique(labels)), scale=1)
+        for k, label in enumerate(np.unique(labels)):
+            indices = [i for i in np.arange(len(labels)) if labels[i] == label]
 
-    # for every class, we'll add a scatter plot separately
-    for k, label in enumerate(np.unique(labels)):
-        # find the samples of the current class in the data
-        indices = [i for i in np.arange(len(labels)) if labels[i] == label]
+            current_tx = np.take(tx, indices)
+            current_ty = np.take(ty, indices)
 
-        # extract the coordinates of the points of this class only
-        current_tx = np.take(tx, indices)
-        current_ty = np.take(ty, indices)
+            ax.scatter(current_tx, current_ty, c=[colors[k]], label=label)
 
-        # add a scatter plot with the corresponding color and label
-        ax.scatter(current_tx, current_ty, c=[colors[k]], label=label)
-
-    # build a legend using the labels we set previously
-    ax.legend(loc="best")
-    plt.gca().invert_yaxis()
-    # finally, show the plot
+        ax.legend(loc="best")
+        plt.gca().invert_yaxis()
+        
     plt.show()
