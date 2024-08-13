@@ -1,40 +1,46 @@
+import logging
+import multiprocessing as mp
 import os
 import time
-import logging
-import ipywidgets as widgets
-from IPython.display import display
+
 import cv2
-import multiprocessing as mp
+import ipywidgets as widgets
 import numpy as np
+from IPython.display import display
 from PIL import Image
 from tqdm import tqdm
-from .seg_utils import create_segmentation_tools, solve_conflicts
+
 from prismtoolbox import WSI
-from prismtoolbox.wsicore.core_utils import contour_mask
+from prismtoolbox.utils.qupath_utils import (
+    contoursToPolygons,
+    export_polygons_to_qupath,
+)
 from prismtoolbox.utils.torch_utils import BaseSlideHandler, ClipCustom
-from prismtoolbox.utils.qupath_utils import contoursToPolygons, export_polygons_to_qupath
+from prismtoolbox.wsicore.core_utils import contour_mask
+
+from .seg_utils import create_segmentation_tools, solve_conflicts
 
 log = logging.getLogger(__name__)
 
 
 class NucleiSegmenter(BaseSlideHandler):
     def __init__(
-            self,
-            slide_dir,
-            model_name,
-            pretrained_weights,
-            batch_size,
-            num_workers,
-            transforms_dict=None,
-            device="cuda",
-            engine="openslide",
-            coords_dir=None,
-            patch_size=None,
-            patch_level=None,
-            deconvolve_channel=None,
-            deconvolve_matrix="HE",
-            threshold_overlap=0.3,
-            **kwargs_seg_tool,
+        self,
+        slide_dir,
+        model_name,
+        pretrained_weights,
+        batch_size,
+        num_workers,
+        transforms_dict=None,
+        device="cuda",
+        engine="openslide",
+        coords_dir=None,
+        patch_size=None,
+        patch_level=None,
+        deconvolve_channel=None,
+        deconvolve_matrix="HE",
+        threshold_overlap=0.3,
+        **kwargs_seg_tool,
     ):
         super().__init__(
             slide_dir,
@@ -59,9 +65,14 @@ class NucleiSegmenter(BaseSlideHandler):
         self.threshold_overlap = threshold_overlap
         self.nuclei_seg = {}
 
-    def set_clip_custom_params_on_ex(self, slide_name, slide_ext, coords=None, deconvolve_channel=None):
+    def set_clip_custom_params_on_ex(
+        self, slide_name, slide_ext, coords=None, deconvolve_channel=None
+    ):
         dataset = self.create_dataset(
-            slide_name, slide_ext=slide_ext, coords=coords, deconvolve_channel=deconvolve_channel
+            slide_name,
+            slide_ext=slide_ext,
+            coords=coords,
+            deconvolve_channel=deconvolve_channel,
         )
         sample_patch = dataset.get_sample_patch()
 
@@ -71,31 +82,36 @@ class NucleiSegmenter(BaseSlideHandler):
             result_image = Image.fromarray((result_tensor.numpy() * 255).astype("uint8"))
             display(result_image)
 
-        w = widgets.interact(apply_clip_custom,
-                             min_value=widgets.FloatSlider(min=0, max=0.5, step=0.01, value=0.1),
-                             max_value=widgets.FloatSlider(min=0.5, max=1.0, step=0.01, value=0.9))
+        w = widgets.interact(
+            apply_clip_custom,
+            min_value=widgets.FloatSlider(min=0, max=0.5, step=0.01, value=0.1),
+            max_value=widgets.FloatSlider(min=0.5, max=1.0, step=0.01, value=0.9),
+        )
         display(w)
 
     def segment_nuclei(
-            self,
-            slide_name,
-            slide_ext,
-            deconvolve_channel=None,
-            coords=None,
-            merge=False,
-            show_progress=True,
+        self,
+        slide_name,
+        slide_ext,
+        deconvolve_channel=None,
+        coords=None,
+        merge=False,
+        show_progress=True,
     ):
         log.info(f"Extracting embeddings from the patches of {slide_name}.")
         dataset = self.create_dataset(
-            slide_name, slide_ext=slide_ext, coords=coords, deconvolve_channel=deconvolve_channel
+            slide_name,
+            slide_ext=slide_ext,
+            coords=coords,
+            deconvolve_channel=deconvolve_channel,
         )
         dataloader = self.create_dataloader(dataset)
         start_time = time.time()
         masks = []
         for patches, coord in tqdm(
-                dataloader,
-                desc=f"Extracting nuclei from the patches of {slide_name}",
-                disable=not show_progress,
+            dataloader,
+            desc=f"Extracting nuclei from the patches of {slide_name}",
+            disable=not show_progress,
         ):
             if self.preprocessing_fct:
                 patches = self.preprocessing_fct(patches)
@@ -117,8 +133,16 @@ class NucleiSegmenter(BaseSlideHandler):
 
             canvas = (labeled_mask == nucleus_idx).astype("uint8")
 
-            border_mask = np.pad(np.zeros((canvas.shape[0] - 2 * border_width, canvas.shape[1] - 2 * border_width)),
-                                 border_width, constant_values=1)
+            border_mask = np.pad(
+                np.zeros(
+                    (
+                        canvas.shape[0] - 2 * border_width,
+                        canvas.shape[1] - 2 * border_width,
+                    )
+                ),
+                border_width,
+                constant_values=1,
+            )
 
             if np.any((canvas * border_mask) != 0):
                 continue
@@ -149,9 +173,7 @@ class NucleiSegmenter(BaseSlideHandler):
 
     def save_nuclei(self, output_directory, slide_ext, flush_memory=True):
         for slide_name, nuclei in self.nuclei_seg.items():
-            WSI_object = WSI(
-                os.path.join(self.slide_dir, f"{slide_name}.{slide_ext}")
-            )
+            WSI_object = WSI(os.path.join(self.slide_dir, f"{slide_name}.{slide_ext}"))
             offset = WSI_object.offset
             output_path = os.path.join(output_directory, f"{slide_name}.geojson")
             export_polygons_to_qupath(

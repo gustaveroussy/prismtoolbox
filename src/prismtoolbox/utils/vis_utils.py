@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib.colors import to_rgb
 from PIL import Image, ImageOps
+
 
 def init_image(
     w: int,
@@ -24,9 +25,9 @@ def init_image(
     else:
         return np.array(Image.new(size=(w, h), mode="RGB", color=color_bakground))
 
+
 def bbox_from_contours(
-    contours: list[np.ndarray],
-    downsample_factor: int = 1
+    contours: list[np.ndarray], downsample_factor: int = 1
 ) -> tuple[int, int, int, int]:
     """
     Compute the bounding box from a set of contours
@@ -37,6 +38,7 @@ def bbox_from_contours(
     x_min, y_min = flatten_contours.min(axis=0).squeeze().astype(int) / downsample_factor
     x_max, y_max = flatten_contours.max(axis=0).squeeze().astype(int) / downsample_factor
     return x_min, y_min, x_max, y_max
+
 
 def bbox_from_coords(
     coords: np.ndarray,
@@ -72,7 +74,7 @@ def get_colors_from_cmap(cmap_name, n_colors, scale=255):
 def plot_scatter(tx, ty, cmap=None, labels=None):
     fig = plt.figure()
     ax = fig.add_subplot(111)
-    
+
     if labels is None:
         ax.scatter(tx, ty)
     else:
@@ -89,5 +91,5 @@ def plot_scatter(tx, ty, cmap=None, labels=None):
 
         ax.legend(loc="best")
         plt.gca().invert_yaxis()
-        
+
     plt.show()

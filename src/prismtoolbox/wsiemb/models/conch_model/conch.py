@@ -1,10 +1,12 @@
-import logging
 import json
+import logging
+from pathlib import Path
+
 import torch
 import torch.nn as nn
 import torchvision.transforms as transforms
-from pathlib import Path
 from huggingface_hub import hf_hub_download
+
 from .coca_model import CoCa, resize_pos_embed
 
 log = logging.getLogger(__name__)

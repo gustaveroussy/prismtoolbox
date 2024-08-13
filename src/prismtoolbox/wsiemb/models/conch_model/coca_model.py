@@ -1,27 +1,25 @@
+import logging
+from dataclasses import dataclass
 from typing import Optional, Tuple, Union
 
+import numpy as np
 import torch
+from timm.models.vision_transformer import VisionTransformer
 from torch import nn
 from torch.nn import functional as F
-import numpy as np
-from dataclasses import dataclass
-import logging
 
-from .transformer import MultimodalTransformer
-
+from .transformer import MultimodalTransformer, TextTransformer
 from .vision_tower import VisualModel
-from timm.models.vision_transformer import VisionTransformer
-from .transformer import TextTransformer
 
 try:
     from transformers import (
         LogitsProcessorList,
-        TopPLogitsWarper,
-        TopKLogitsWarper,
-        RepetitionPenaltyLogitsProcessor,
-        MinLengthLogitsProcessor,
         MaxLengthCriteria,
+        MinLengthLogitsProcessor,
+        RepetitionPenaltyLogitsProcessor,
         StoppingCriteriaList,
+        TopKLogitsWarper,
+        TopPLogitsWarper,
     )
 
     GENERATION_TYPES = {"top_k": TopKLogitsWarper, "top_p": TopPLogitsWarper}

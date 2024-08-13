@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+from itertools import product
+
+import cv2
 import h5py
 import numpy as np
-import cv2
 from PIL import Image
 from scipy.signal import oaconvolve
-from itertools import product
 
 
 def select_roi_on_thumbnail(img: np.ndarray, scale_factor: int) -> np.ndarray:
@@ -82,9 +83,7 @@ def local_average(img: np.ndarray, window_size: int) -> np.ndarray:
 
 
 def compute_law_feats(
-    img: np.ndarray,
-    window_size: int,
-    only_s5: bool = True
+    img: np.ndarray, window_size: int, only_s5: bool = True
 ) -> list[np.ndarray]:
     """Compute the Law's texture energy for a given grayscale image and window size.
 
@@ -215,11 +214,11 @@ def contour_mask(mask: np.ndarray) -> list[np.ndarray]:
 
 class IsInContour:
     def __init__(
-        self, 
+        self,
         contour: np.ndarray,
-        patch_size: int, 
+        patch_size: int,
         center_shift: int = 0.5,
-        mode: str = "center"
+        mode: str = "center",
     ):
         """The IsInContour class checks if a patch is inside a contour.
 
@@ -277,9 +276,7 @@ class IsInContour:
 
 
 def isBlackPatch(
-    patch: Image.Image,
-    rgb_thresh: int = 20,
-    percentage: float = 0.05
+    patch: Image.Image, rgb_thresh: int = 20, percentage: float = 0.05
 ) -> bool:
     """Check if a patch is black.
 
@@ -300,9 +297,7 @@ def isBlackPatch(
 
 
 def isWhitePatch(
-    patch: Image.Image,
-    rgb_thresh: int = 220,
-    percentage: float = 0.2
+    patch: Image.Image, rgb_thresh: int = 220, percentage: float = 0.2
 ) -> bool:
     """Check if a patch is white.
 
@@ -357,5 +352,5 @@ def save_patches_with_hdf5(
         else:
             dset = file[key]
             dset.resize(len(dset) + data_shape[0], axis=0)
-            dset[-data_shape[0]:] = val
+            dset[-data_shape[0] :] = val
     file.close()

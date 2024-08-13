@@ -1,21 +1,23 @@
 from __future__ import annotations
 
-import torch
-import shapely
-import numpy as np
-from shapely import Polygon, MultiPolygon
-from tqdm import tqdm
 from functools import partial
+
+import numpy as np
+import shapely
+import torch
 from cellpose import models as cp_models
-from .models import create_sop_segmenter, create_sop_postprocessing
+from shapely import MultiPolygon, Polygon
+from tqdm import tqdm
+
+from .models import create_sop_postprocessing, create_sop_segmenter
 
 
 def create_cellpose_tools(
-    device: str = "cuda", 
-    model_type: str = "cyto3", 
-    min_size=15, 
-    flow_threshold=0.4, 
-    channel_cellpose=0
+    device: str = "cuda",
+    model_type: str = "cyto3",
+    min_size=15,
+    flow_threshold=0.4,
+    channel_cellpose=0,
 ):
     model = cp_models.Cellpose(model_type=model_type, device=torch.device(device))
     model_infer = partial(

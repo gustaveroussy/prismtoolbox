@@ -1,8 +1,9 @@
 import math
-import torch
-import torch.nn as nn
 from functools import reduce
 from operator import mul
+
+import torch
+import torch.nn as nn
 from timm.layers import PatchEmbed
 from timm.models.vision_transformer import VisionTransformer
 

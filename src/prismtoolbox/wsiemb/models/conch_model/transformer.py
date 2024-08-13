@@ -1,6 +1,6 @@
-from collections import OrderedDict
 import math
 import random
+from collections import OrderedDict
 from typing import Callable, Optional
 
 import torch

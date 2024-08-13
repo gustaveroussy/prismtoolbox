@@ -1,46 +1,44 @@
 from __future__ import annotations
 
 import logging
-
+import multiprocessing as mp
 import os
+import pathlib
 import re
 import warnings
-import pathlib
-import multiprocessing as mp
 
-import pandas as pd
 import cv2
 import numpy as np
+import pandas as pd
 from PIL import Image
 
-from .core_utils import (
-    select_roi_on_thumbnail,
-    local_average,
-    compute_law_feats,
-    apply_bilateral_filter,
-    apply_binary_thresh,
-    floodfill_img,
-    contour_mask,
-    IsInContour,
-    isBlackPatch,
-    isWhitePatch,
-    save_patches_with_hdf5,
-)
-
-from prismtoolbox.utils.vis_utils import init_image
-
 from prismtoolbox.utils.data_utils import (
-    save_obj_with_pickle,
     load_obj_with_pickle,
     read_h5_file,
+    save_obj_with_pickle,
 )
 from prismtoolbox.utils.qupath_utils import (
-    contoursToPolygons,
     PolygonsToContours,
-    patchesToPolygons,
-    read_qupath_annotations,
+    contoursToPolygons,
     export_polygons_to_qupath,
     intersectionPolygons,
+    patchesToPolygons,
+    read_qupath_annotations,
+)
+from prismtoolbox.utils.vis_utils import init_image
+
+from .core_utils import (
+    IsInContour,
+    apply_bilateral_filter,
+    apply_binary_thresh,
+    compute_law_feats,
+    contour_mask,
+    floodfill_img,
+    isBlackPatch,
+    isWhitePatch,
+    local_average,
+    save_patches_with_hdf5,
+    select_roi_on_thumbnail,
 )
 
 log = logging.getLogger(__name__)
@@ -136,9 +134,11 @@ class WSI:
         """
         if engine == "openslide":
             import openslide
+
             slide = openslide.OpenSlide(slide_path)
         elif engine == "tiffslide":
             import tiffslide
+
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", category=UserWarning)
                 slide = tiffslide.TiffSlide(slide_path)
@@ -235,7 +235,7 @@ class WSI:
         self,
         value: float,
         level: int,
-        axis: str = 'x',
+        axis: str = "x",
     ) -> int:
         """Convert a value from micrometer to pixel.
 
@@ -247,16 +247,15 @@ class WSI:
         Returns:
             The input value in pixel.
         """
-        return (
-            int(value / float(self.properties[f"{self.engine}.mpp-{axis}"]))
-            // int(self.level_downsamples[level])
+        return int(value / float(self.properties[f"{self.engine}.mpp-{axis}"])) // int(
+            self.level_downsamples[level]
         )
 
     def convert_pixel_to_micrometer(
         self,
         value: float,
         level: int,
-        axis: str = 'x',
+        axis: str = "x",
     ) -> float:
         """Convert a value from pixel to micrometer.
 
@@ -443,11 +442,7 @@ class WSI:
                     self.coords_attrs["patch_level"],
                     (self.coords_attrs["patch_size"], self.coords_attrs["patch_size"]),
                 ).convert("RGB")
-                patch.save(
-                    os.path.join(
-                        save_dir, f"{coord[0]}_{coord[1]}.{file_format}"
-                    )
-                )
+                patch.save(os.path.join(save_dir, f"{coord[0]}_{coord[1]}.{file_format}"))
         else:
             raise ValueError(f"format {file_format} not supported")
 
@@ -631,9 +626,14 @@ class WSI:
             )
             return
 
-    def apply_pathologist_annotations(self, path: str, class_name: str = "annotation", column_to_select: str = "objectType") -> None:
+    def apply_pathologist_annotations(
+        self,
+        path: str,
+        class_name: str = "annotation",
+        column_to_select: str = "objectType",
+    ) -> None:
         """Apply pathologist annotations to the tissue contours by intersecting the annotations
-        with the tissue contours. Requires the tissue contours to be set for the slide beforehand 
+        with the tissue contours. Requires the tissue contours to be set for the slide beforehand
         with the [detect_tissue][prismtoolbox.wsicore.WSI.detect_tissue] method.
 
         Args:
@@ -645,7 +645,9 @@ class WSI:
             self.tissue_contours is not None
         ), "No tissue contours found for the slide, please run the detect_tissue method first"
         offset = (-self.offset[0], -self.offset[1])
-        pathologist_annotations = read_qupath_annotations(path, offset=offset, class_name=class_name, column_to_select=column_to_select)
+        pathologist_annotations = read_qupath_annotations(
+            path, offset=offset, class_name=class_name, column_to_select=column_to_select
+        )
         polygons = contoursToPolygons(self.tissue_contours, make_valid=True)
         intersection = intersectionPolygons(polygons, pathologist_annotations)
         self.tissue_contours = PolygonsToContours(intersection)
@@ -779,7 +781,7 @@ class WSI:
             )
             self.coords = valid_coords
             self.coords_attrs = attr
-            
+
     def extract_patches_roi(
         self,
         patch_level: int,
@@ -823,12 +825,14 @@ class WSI:
             "A contour mode must be provided if patch "
             "extraction mode is set to contours"
         )
-        assert (roi_dim is not None and step_size is not None) or coord_candidates is not None, (
+        assert (
+            roi_dim is not None and step_size is not None
+        ) or coord_candidates is not None, (
             "Either (roi_dim and step_size) or coord_candidates must be provided"
         )
         patch_downsample = int(self.level_downsamples[patch_level])
         ref_patch_size = patch_size * patch_downsample
-        
+
         if coord_candidates is None:
             start_x, start_y, w, h = roi_dim
 
@@ -846,7 +850,9 @@ class WSI:
             x_range = np.arange(start_x, stop_x, step=step_size)
             y_range = np.arange(start_y, stop_y, step=step_size)
             x_coords, y_coords = np.meshgrid(x_range, y_range, indexing="ij")
-            coord_candidates = np.array([x_coords.flatten(), y_coords.flatten()]).transpose()
+            coord_candidates = np.array(
+                [x_coords.flatten(), y_coords.flatten()]
+            ).transpose()
 
         if contour is not None:
             cont_check_fn = IsInContour(
@@ -873,14 +879,14 @@ class WSI:
         ]
         valid_coords = pool.starmap(WSI.process_coord_candidate, iterable)
         pool.close()
-        
+
         valid_indices = [i for i, coord in enumerate(valid_coords) if coord is not None]
         valid_coords = np.array([coord_candidates[i] for i in valid_indices])
-        
+
         log.info(
             f"Identified {len(valid_coords)}  valid coordinates in the ROI {roi_dim}."
         )
-        
+
         if return_indices:
             return valid_coords, valid_indices
         else:
@@ -914,9 +920,9 @@ class WSI:
             A PIL image of the visualization.
         """
         assert line_thickness > 0, "line_thickness must be greater than 0"
-        
+
         scale = 1 / self.level_downsamples[vis_level]
-        
+
         if black_white:
             img = np.zeros_like(self.create_thumbnail(vis_level, crop_roi), dtype="uint8")
             line_thickness = -1
@@ -926,9 +932,9 @@ class WSI:
             line_thickness = int(line_thickness * scale)
 
         if not view_slide_only:
-            assert len(self.tissue_contours) > 0, (
-                "No tissue contours found for the slide, please run the detect_tissue method first"
-            )
+            assert (
+                len(self.tissue_contours) > 0
+            ), "No tissue contours found for the slide, please run the detect_tissue method first"
             offset = self.ROI[:2] if crop_roi else np.array([0, 0])
             contours = [cont - offset for cont in self.tissue_contours]
             contours = self.scale_contours(contours, scale)
@@ -967,7 +973,7 @@ class WSI:
                         )
 
         img = Image.fromarray(img)
-        
+
         if black_white:
             img = img.convert("L")
 
@@ -1041,7 +1047,9 @@ class WSI:
         offset = self.ROI[:2] if crop_roi else np.array([0, 0])
         for idx in idxs:
             coord = self.coords[idx]
-            coord_downsampled = np.ceil(np.abs(coord - offset) / downsample_vis).astype(int)
+            coord_downsampled = np.ceil(np.abs(coord - offset) / downsample_vis).astype(
+                int
+            )
             patch_size_coord = (
                 min(max(w - coord_downsampled[0], 0), patch_size),
                 min(max(h - coord_downsampled[1], 0), patch_size),

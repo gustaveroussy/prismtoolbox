@@ -1,11 +1,12 @@
-import timm
-import torch.nn as nn
-import torch.hub as hub
 from functools import partial
-from torchvision.models import get_model_weights
+
+import timm
+import torch.hub as hub
+import torch.nn as nn
 from timm.data import resolve_data_config
 from timm.data.transforms_factory import create_transform
-from transformers import AutoConfig, AutoModel, AutoImageProcessor
+from torchvision.models import get_model_weights
+from transformers import AutoConfig, AutoImageProcessor, AutoModel
 
 from .utils import check_weight_in_dict, retrieve_pretrained_weight_transforms_from_dict
 
@@ -84,9 +85,7 @@ class GenericEmbedderTimm:
                 **resolve_data_config(self.model.pretrained_cfg, model=self.model)
             )
         else:
-            raise ValueError(
-                "Pretained is False. Cannot retrieve pretrained transforms."
-            )
+            raise ValueError("Pretained is False. Cannot retrieve pretrained transforms.")
         return pretrained_transform
 
 

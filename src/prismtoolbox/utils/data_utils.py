@@ -1,16 +1,17 @@
 from __future__ import annotations
 
-import pickle
 import json
-import h5py
+import pickle
+from typing import Any, Tuple
+
 import geopandas as gpd
+import h5py
 import numpy as np
-from typing import Tuple, Any
 
 
 def save_obj_with_pickle(obj: object, file_path: str) -> None:
     """Save an object to a file using pickle.
-    
+
     Args:
         obj: A pickeable object.
         file_path: The path to the file.
@@ -21,7 +22,7 @@ def save_obj_with_pickle(obj: object, file_path: str) -> None:
 
 def save_obj_with_json(obj: object, file_path: str) -> None:
     """Save an object to a file using json.
-    
+
     Args:
         obj: A json object.
         file_path: The path to the file.
@@ -71,7 +72,10 @@ def read_h5_file(file_path: str, key: str) -> Tuple[np.ndarray, dict]:
         attrs = {key: value for key, value in f[key].attrs.items()}
     return object, attrs
 
-def read_json_with_geopandas(file_path: str, offset: tuple[int, int] = (0, 0)) -> gpd.GeoDataFrame:
+
+def read_json_with_geopandas(
+    file_path: str, offset: tuple[int, int] = (0, 0)
+) -> gpd.GeoDataFrame:
     """Read a json file with geopandas.
 
     Args:
@@ -84,7 +88,9 @@ def read_json_with_geopandas(file_path: str, offset: tuple[int, int] = (0, 0)) -
     df = gpd.GeoDataFrame.from_features(data)
     df.translate(xoff=offset[0], yoff=offset[1])
     if not df.is_valid.any():
-        df.loc[~df.is_valid,:] = df.loc[~df.is_valid, :].buffer(0)
+        df.loc[~df.is_valid, :] = df.loc[~df.is_valid, :].buffer(0)
     if "classification" in df.columns:
-        df["classification"] = df["classification"].apply(lambda x: x["name"] if type(x) == dict else x)
+        df["classification"] = df["classification"].apply(
+            lambda x: x["name"] if type(x) == dict else x
+        )
     return df

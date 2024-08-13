@@ -1,6 +1,6 @@
 import numpy as np
-from skimage import morphology as skmorphology
 from scipy import ndimage as nd
+from skimage import morphology as skmorphology
 from skimage.feature import peak_local_max
 from skimage.segmentation import watershed
 

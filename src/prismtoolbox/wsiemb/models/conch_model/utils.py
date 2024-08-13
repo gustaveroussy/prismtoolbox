@@ -1,5 +1,5 @@
-from itertools import repeat
 import collections.abc
+from itertools import repeat
 
 from torch import nn as nn
 from torchvision.ops.misc import FrozenBatchNorm2d

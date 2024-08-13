@@ -1,18 +1,23 @@
 import logging
 import os
 import uuid
+from typing import List, Optional, Tuple, Union
+
 import numpy as np
 from shapely import MultiPolygon, Polygon, box
-from shapely.geometry import mapping, shape
 from shapely.affinity import translate
+from shapely.geometry import mapping, shape
 from shapely.ops import unary_union
-from typing import Optional, Tuple, List, Union
-from .data_utils import load_obj_with_json, save_obj_with_json, read_json_with_geopandas
+
+from .data_utils import load_obj_with_json, read_json_with_geopandas, save_obj_with_json
 
 log = logging.getLogger(__name__)
 
+
 def contoursToPolygons(
-    contours: List[np.ndarray], merge: Optional[bool] = False, make_valid: Optional[bool] = False,
+    contours: List[np.ndarray],
+    merge: Optional[bool] = False,
+    make_valid: Optional[bool] = False,
 ) -> Union[Polygon, MultiPolygon]:
     """Converts list of arrays to shapely polygons.
 
@@ -49,8 +54,13 @@ def PolygonsToContours(polygons: MultiPolygon):
         for poly in polygons.geoms
     ]
 
-def read_qupath_annotations(path: str, offset: Optional[Tuple[int, int]] = (0, 0), class_name: str = "annotation",
-                            column_to_select: str = "objectType"):
+
+def read_qupath_annotations(
+    path: str,
+    offset: Optional[Tuple[int, int]] = (0, 0),
+    class_name: str = "annotation",
+    column_to_select: str = "objectType",
+):
     """Reads pathologist annotations from a .geojson file.
 
     :param path: path to the .geojson file
@@ -72,6 +82,7 @@ def read_qupath_annotations(path: str, offset: Optional[Tuple[int, int]] = (0, 0
     if not polygons.is_valid:
         polygons = polygons.buffer(0)
     return polygons
+
 
 def convert_rgb_to_java_int_signed(rgb: Tuple[int, int, int]) -> int:
     """Converts RGB tuple to Java signed integer.
@@ -118,14 +129,19 @@ def export_polygons_to_qupath(
         }
     polygons = translate(polygons, xoff=offset[0], yoff=offset[1])
     for poly in polygons.geoms:
-       features.append(
-           {
+        features.append(
+            {
                 "type": "Feature",
                 "id": str(uuid.uuid4()),
                 "geometry": mapping(poly),
                 "properties": properties,
-            })
-    features = {"type": "FeatureCollection", "features": features} if as_feature_collection else features
+            }
+        )
+    features = (
+        {"type": "FeatureCollection", "features": features}
+        if as_feature_collection
+        else features
+    )
     if os.path.exists(path) and append_to_existing_file:
         previous_features = load_obj_with_json(path)
         if len(previous_features) == 0:

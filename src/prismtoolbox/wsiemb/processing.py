@@ -1,18 +1,19 @@
 from __future__ import annotations
 
 import logging
-import torch
+
 import numpy as np
 import pandas as pd
-import umap
-    
 import sklearn.cluster as skl_cluster
 import sklearn.decomposition as skl_decomposition
 import sklearn.manifold as skl_manifold
+import torch
+import umap
 
 from prismtoolbox import WSI
-from prismtoolbox.utils.data_utils import save_obj_with_pickle, load_obj_with_pickle
+from prismtoolbox.utils.data_utils import load_obj_with_pickle, save_obj_with_pickle
 from prismtoolbox.utils.vis_utils import get_colors_from_cmap, plot_scatter
+
 from .emb_utils import compute_optimal_number_clusters
 
 log = logging.getLogger(__name__)
@@ -25,7 +26,7 @@ class EmbeddingProcessor:
         embeddings_names: list[str] | str | None = None,
         slide_ids: list[str] | None = None,
         cmap: str = "Set1",
-        seed: int = None
+        seed: int = None,
     ):
         """_summary_
 
@@ -36,7 +37,7 @@ class EmbeddingProcessor:
             slide_ids: The ids of the slides.
             cmap: The colormap to use for visualizations.
             seed: The seed to use for reproducibility.
-            
+
         Attributes:
             embeddings: The embeddings to process as a list of numpy arrays.
             embeddings_matrix: The embeddings to process concatenated into a single numpy array.
@@ -61,8 +62,11 @@ class EmbeddingProcessor:
             np.array(slide_ids) if slide_ids is not None else np.arange(len(embeddings))
         )
         self.slide_ids_matrix = np.concatenate(
-            [np.repeat(slide_id, len(emb)) for slide_id, emb in zip(self.slide_ids, self.embeddings)],
-            axis=0
+            [
+                np.repeat(slide_id, len(emb))
+                for slide_id, emb in zip(self.slide_ids, self.embeddings)
+            ],
+            axis=0,
         )
         self.cmap = cmap
         self.seed = seed
@@ -72,12 +76,14 @@ class EmbeddingProcessor:
         self.eps = 1e-6
 
     @staticmethod
-    def load_embeddings(embeddings: list[np.ndarray | torch.Tensor | str]) -> list[np.ndarray]:
+    def load_embeddings(
+        embeddings: list[np.ndarray | torch.Tensor | str],
+    ) -> list[np.ndarray]:
         """Process the embeddings to load them as numpy arrays.
 
         Args:
             embeddings: The embeddings to process. Can be a list of numpy arrays, torch tensors or paths to embeddings.
-            
+
         Returns:
             The embeddings loaded as numpy arrays.
         """
@@ -123,12 +129,14 @@ class EmbeddingProcessor:
         elif isinstance(embeddings_names, list):
             return embeddings_names
         else:
-            raise ValueError("embedding names type not supported, please provide a list of strings or a path to a csv file")
-            
+            raise ValueError(
+                "embedding names type not supported, please provide a list of strings or a path to a csv file"
+            )
+
     def return_subsampled_embeddings(
-        self, 
-        n_samples: int | float, 
-        by_slide: bool = True, 
+        self,
+        n_samples: int | float,
+        by_slide: bool = True,
         labels: np.ndarray | None = False,
     ) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
         """Creates a subsample version of the embeddings matrix.
@@ -165,7 +173,9 @@ class EmbeddingProcessor:
             )
             log.info(f"Subsampled {n_samples} embeddings.")
         if labels is not None:
-            assert len(labels) == len(self.embeddings_matrix), "labels and embeddings have different lengths"
+            assert len(labels) == len(
+                self.embeddings_matrix
+            ), "labels and embeddings have different lengths"
             return (
                 self.embeddings_matrix[subsampled_idx],
                 labels[subsampled_idx],
@@ -174,9 +184,7 @@ class EmbeddingProcessor:
             return self.embeddings_matrix[subsampled_idx]
 
     def get_embedding_for_slide(
-        self,
-        slide_id: str,
-        normalize: bool = True
+        self, slide_id: str, normalize: bool = True
     ) -> np.ndarray:
         """Get the embeddings for a specific slide.
 
@@ -190,7 +198,11 @@ class EmbeddingProcessor:
         if slide_id not in self.slide_ids:
             raise ValueError(f"slide {slide_id} not found in slide ids")
         idx = np.where(self.slide_ids == slide_id)[0].item()
-        emb_mean, emb_std = (self.embeddings_stats["mean"], self.embeddings_stats["std"]) if normalize else (0,1)
+        emb_mean, emb_std = (
+            (self.embeddings_stats["mean"], self.embeddings_stats["std"])
+            if normalize
+            else (0, 1)
+        )
         return (self.embeddings[idx] - emb_mean) / (emb_std + self.eps)
 
     def get_optimal_number_clusters(
@@ -203,13 +215,13 @@ class EmbeddingProcessor:
         with_scores: bool = True,
         n_samples: int | float | None = None,
         selected_features: list[str] | None = None,
-        **kwargs
-    )-> int | tuple[int, list[float]]:
+        **kwargs,
+    ) -> int | tuple[int, list[float]]:
         """Compute the optimal number of clusters for the embeddings.
 
         Args:
-            model_name: The clustering model to use. 
-                See [compute_optimal_number_clusters][prismtoolbox.wsiemb.emb_utils.compute_optimal_number_clusters] 
+            model_name: The clustering model to use.
+                See [compute_optimal_number_clusters][prismtoolbox.wsiemb.emb_utils.compute_optimal_number_clusters]
                 for the available models.
             normalize: Whether to normalize the embeddings or not according to the mean and std of self.embeddings_stats.
             metric_name: The metric to use to compute the optimal number of clusters.
@@ -225,14 +237,24 @@ class EmbeddingProcessor:
         Returns:
             The optimal number of clusters according to the metric. If with_scores, it also returns the scores.
         """
-        emb_mean, emb_std = (self.embeddings_stats["mean"], self.embeddings_stats["std"]) if normalize else (0, 1)
+        emb_mean, emb_std = (
+            (self.embeddings_stats["mean"], self.embeddings_stats["std"])
+            if normalize
+            else (0, 1)
+        )
         if n_samples is not None:
             embeddings_matrix = self.return_subsampled_embeddings(n_samples)
         else:
             embeddings_matrix = self.embeddings_matrix
         embeddings_matrix = (embeddings_matrix - emb_mean) / (emb_std + self.eps)
         if selected_features is not None:
-            selected_feats = np.array([i for i, name in enumerate(self.embeddings_names) if name in selected_features])
+            selected_feats = np.array(
+                [
+                    i
+                    for i, name in enumerate(self.embeddings_names)
+                    if name in selected_features
+                ]
+            )
             embeddings_matrix = embeddings_matrix[:, selected_feats]
         optimal_number, scores = compute_optimal_number_clusters(
             embeddings_matrix,
@@ -248,24 +270,24 @@ class EmbeddingProcessor:
             return optimal_number
 
     def create_cluster_model(
-        self, 
-        model_name: str, 
-        normalize: bool = True, 
-        n_samples: int | float | None =None,
+        self,
+        model_name: str,
+        normalize: bool = True,
+        n_samples: int | float | None = None,
         selected_features: list[str] | None = None,
-        **kwargs
+        **kwargs,
     ):
         """Create a clustering model trained on the embeddings matrix. The resulting model is stored in
             self.cluster_model.
 
         Args:
             model_name: The clustering model to use. Possible models are:
-                
+
                 - "[kmeans](https://scikit-learn.org/stable/modules/generated/
                 sklearn.cluster.KMeans.html#sklearn.cluster.KMeans)"
                 - "[kmeans_mini_batch](https://scikit-learn.org/stable/modules/generated/
                 sklearn.cluster.MiniBatchKMeans.html#sklearn.cluster.MiniBatchKMeans)"
-            
+
             normalize: Whether to normalize the embeddings or not according to the mean and std of
                 self.embeddings_stats.
             n_samples: The number of samples to subsample. If None, the whole embeddings matrix is used.
@@ -279,24 +301,34 @@ class EmbeddingProcessor:
             self.cluster_model = skl_cluster.MiniBatchKMeans(**kwargs)
         else:
             raise ValueError(f"model {model_name} not implemented")
-        emb_mean, emb_std = (self.embeddings_stats["mean"], self.embeddings_stats["std"]) if normalize else (0, 1)
+        emb_mean, emb_std = (
+            (self.embeddings_stats["mean"], self.embeddings_stats["std"])
+            if normalize
+            else (0, 1)
+        )
         if n_samples is not None:
             embeddings_matrix = self.return_subsampled_embeddings(n_samples)
         else:
             embeddings_matrix = self.embeddings_matrix
         embeddings_matrix = (embeddings_matrix - emb_mean) / (emb_std + self.eps)
         if selected_features is not None:
-            selected_feats = np.array([i for i, name in enumerate(self.embeddings_names) if name in selected_features])
+            selected_feats = np.array(
+                [
+                    i
+                    for i, name in enumerate(self.embeddings_names)
+                    if name in selected_features
+                ]
+            )
             embeddings_matrix = embeddings_matrix[:, selected_feats]
         self.cluster_model.fit(embeddings_matrix)
         self.n_clusters = self.cluster_model.n_clusters
         self.cluster_colors = get_colors_from_cmap(self.cmap, self.n_clusters)
 
     def get_cluster_assignments_for_slide(
-        self, 
-        slide_id: str, 
+        self,
+        slide_id: str,
         normalize: bool = True,
-        selected_features: list[str] | None = None
+        selected_features: list[str] | None = None,
     ) -> np.ndarray:
         """Get the cluster assignments for a specific slide. Requires a cluster model to be created first
             with the [create_cluster_model][prismtoolbox.wsiemb.processing.EmbeddingProcessor.create_cluster_model]
@@ -317,18 +349,28 @@ class EmbeddingProcessor:
             raise ValueError(f"slide {slide_id} not found in slide ids")
         idx = np.where(self.slide_ids == slide_id)[0].item()
         embeddings = self.embeddings[idx]
-        emb_mean, emb_std = (self.embeddings_stats["mean"], self.embeddings_stats["std"]) if normalize else (0, 1)
+        emb_mean, emb_std = (
+            (self.embeddings_stats["mean"], self.embeddings_stats["std"])
+            if normalize
+            else (0, 1)
+        )
         embeddings = (embeddings - emb_mean) / (emb_std + self.eps)
         if selected_features is not None:
-            selected_feats = np.array([i for i, name in enumerate(self.embeddings_names) if name in selected_features])
+            selected_feats = np.array(
+                [
+                    i
+                    for i, name in enumerate(self.embeddings_names)
+                    if name in selected_features
+                ]
+            )
             embeddings = embeddings[:, selected_feats]
         return self.cluster_model.predict(embeddings)
 
     def get_cluster_percentages_for_slide(
-        self, 
-        slide_id: str, 
+        self,
+        slide_id: str,
         normalize: bool = True,
-        selected_features: list[str] | None = None
+        selected_features: list[str] | None = None,
     ) -> dict[str, float]:
         """Get the cluster percentages for a specific slide. Requires a cluster model to be created first
             with the [create_cluster_model][prismtoolbox.wsiemb.processing.EmbeddingProcessor.create_cluster_model]
@@ -342,7 +384,9 @@ class EmbeddingProcessor:
         Returns:
             The cluster percentages for the slide.
         """
-        cluster_assignments = self.get_cluster_assignments_for_slide(slide_id, normalize, selected_features)
+        cluster_assignments = self.get_cluster_assignments_for_slide(
+            slide_id, normalize, selected_features
+        )
         cluster_percentage = {}
         for cluster in range(self.n_clusters):
             cluster_percentage[f"cluster_{cluster}"] = (
@@ -355,7 +399,7 @@ class EmbeddingProcessor:
         WSI_object: WSI,
         save_dir: str,
         normalize: bool = True,
-        selected_features: list[str] | None = None
+        selected_features: list[str] | None = None,
     ):
         """Export the clusters as polygons to a geojson file for a slide.
 
@@ -414,13 +458,13 @@ class EmbeddingProcessor:
         labels: np.ndarray | None = None,
         n_samples: int | float | None = None,
         selected_features: list[str] | None = None,
-        **kwargs
+        **kwargs,
     ):
         """Visualize the embeddings using a dimensionality reduction model.
 
         Args:
             model_name: The name of the dimensionality reduction model to use. Possible models are:
-                
+
                 - "[PCA](https://scikit-learn.org/stable/modules/generated/
                 sklearn.decomposition.PCA.html#sklearn.decomposition.PCA)"
                 - "[TSNE](https://scikit-learn.org/stable/modules/generated/
@@ -447,12 +491,20 @@ class EmbeddingProcessor:
             subsampled_arrays = self.return_subsampled_embeddings(
                 n_samples, labels=labels
             )
-            embeddings_matrix = subsampled_arrays if labels is None else subsampled_arrays[0]
+            embeddings_matrix = (
+                subsampled_arrays if labels is None else subsampled_arrays[0]
+            )
             labels = subsampled_arrays[1] if labels is not None else None
         else:
             embeddings_matrix = self.embeddings_matrix
         if selected_features is not None:
-            selected_feats = np.array([i for i, name in enumerate(self.embeddings_names) if name in selected_features])
+            selected_feats = np.array(
+                [
+                    i
+                    for i, name in enumerate(self.embeddings_names)
+                    if name in selected_features
+                ]
+            )
             embeddings_matrix = embeddings_matrix[:, selected_feats]
         embeddings_reduced = dimensionality_reduction_model.fit_transform(
             embeddings_matrix
@@ -461,7 +513,7 @@ class EmbeddingProcessor:
             self.scale_to_01_range(embeddings_reduced[:, 0]),
             self.scale_to_01_range(embeddings_reduced[:, 1]),
             self.cmap,
-            labels
+            labels,
         )
 
     def save_cluster_model(self, output_path: str):

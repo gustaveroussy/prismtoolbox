@@ -13,11 +13,12 @@ def retrieve_conv_matrix(conv_matrix_name="HED"):
         conv_matrix = skcolor.hed_from_rgb
     elif conv_matrix_name == "HD":
         conv_matrix = skcolor.hdx_from_rgb
-    elif conv_matrix_name == "HD_custom": # to fix
+    elif conv_matrix_name == "HD_custom":  # to fix
         conv_matrix = np.linalg.inv(IHC_custom)
     else:
         raise ValueError("conv_matrix_name must be 'HED', 'HD' or 'HD_custom'")
     return conv_matrix
+
 
 def deconvolve_img(img, conv_matrix_name="HED"):
     conv_matrix = retrieve_conv_matrix(conv_matrix_name)

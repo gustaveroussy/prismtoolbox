@@ -1,9 +1,11 @@
 import logging
-import torch.nn as nn
 from functools import partial
+
+import torch.nn as nn
 from transformers import AutoImageProcessor, ViTModel
 
 log = logging.getLogger(__name__)
+
 
 class Phikon(nn.Module):
     def __init__(self) -> None:

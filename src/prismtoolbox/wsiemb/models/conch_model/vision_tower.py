@@ -3,10 +3,9 @@ from collections import OrderedDict
 
 import torch
 import torch.nn as nn
-
-from .transformer import AttentionalPooler
 from timm.layers import Mlp, to_2tuple
 
+from .transformer import AttentionalPooler
 from .utils import freeze_batch_norm_2d
 
 
@@ -95,7 +94,7 @@ class VisualModel(nn.Module):
             if freeze_bn_stats:
                 freeze_batch_norm_2d(self.trunk)
         else:
-            from timm.models.helpers import group_parameters, group_modules
+            from timm.models.helpers import group_modules, group_parameters
 
             matcher = self.trunk.group_matcher()
             gparams = group_parameters(self.trunk, matcher)
