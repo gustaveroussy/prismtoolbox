@@ -313,6 +313,7 @@ class WSI:
         label: str | None = None,
         color: tuple[int, int, int] = (255, 0, 0),
         append_to_existing_file: bool = False,
+        make_valid: bool = False,
     ) -> None:
         """Save the tissue contours in a pickle or geojson file.
 
@@ -326,6 +327,7 @@ class WSI:
             label: An optional label to assign to the tissue contours (for geojson format only).
             color: An optional color to assign to the tissue contours (for geojson format only).
             append_to_existing_file: Set to True to append the contours to an existing geojson file.
+            make_valid: Set to True to make the polygons valid (for geojson format only).
         """
         assert self.tissue_contours is not None, (
             "No tissue contours found for the slide, "
@@ -349,7 +351,7 @@ class WSI:
             log.info(
                 f"Saving {selected_idx} tissue contours for slide {self.slide_name} at {file_path} with geojson."
             )
-            polygons = contoursToPolygons(tissue_contours, merge)
+            polygons = contoursToPolygons(tissue_contours, merge, make_valid)
             export_polygons_to_qupath(
                 polygons,
                 file_path,
@@ -644,7 +646,7 @@ class WSI:
         ), "No tissue contours found for the slide, please run the detect_tissue method first"
         offset = (-self.offset[0], -self.offset[1])
         pathologist_annotations = read_qupath_annotations(path, offset=offset, class_name=class_name, column_to_select=column_to_select)
-        polygons = contoursToPolygons(self.tissue_contours, make_valid=False)
+        polygons = contoursToPolygons(self.tissue_contours, make_valid=True)
         intersection = intersectionPolygons(polygons, pathologist_annotations)
         self.tissue_contours = PolygonsToContours(intersection)
 
