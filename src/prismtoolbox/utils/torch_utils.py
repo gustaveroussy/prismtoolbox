@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import inspect
 
 import numpy as np
 import torch
@@ -134,8 +135,8 @@ class BaseSlideHandler:
             log.info("Creating transforms from transforms dict.")
             transforms = create_transforms(self.transforms_dict)
         else:
-            log.info("No transform dict found.")
-            transforms = None
+            log.info("No transforms dict found.")
+            transforms = ToTensorv2()
         return transforms
 
     def create_dataset(
@@ -218,7 +219,7 @@ class BasePatchHandler:
             transforms = create_transforms(self.transforms_dict)
         else:
             log.info("No transform dict found.")
-            transforms = None
+            transforms = ToTensorv2()
         return transforms
 
     def create_dataset(self, img_folder):
@@ -233,21 +234,21 @@ class BasePatchHandler:
         batch_size = self.batch_size if batch_size is None else batch_size
         return DataLoader(dataset, batch_size=batch_size, num_workers=num_workers)
 
+def get_torchvision_transforms() -> dict[str, transformsv2.Transform]:
+    torchvision_transforms = {}
+    accepted_type = ["color", "geometry", "type_conversion"]
+    for name, obj in inspect.getmembers(transformsv2):
+        if inspect.isclass(obj) and issubclass(obj, transformsv2.Transform):
+            if any(transform_type in inspect.getfile(obj) for transform_type in accepted_type):
+                torchvision_transforms[name.lower()] = obj
+    return torchvision_transforms
 
 possible_transforms = {
     "totensor": ToTensorv2,
     "clip_custom": ClipCustom,
-    "normalize": transformsv2.Normalize,
-    "horizontal_flip": transformsv2.RandomHorizontalFlip,
-    "vertical_flip": transformsv2.RandomVerticalFlip,
-    "rotation": transformsv2.RandomRotation,
-    "resized_crop": transformsv2.RandomResizedCrop,
-    "random_crop": transformsv2.RandomCrop,
-    "center_crop": transformsv2.CenterCrop,
-    "resize": transformsv2.Resize,
+    **get_torchvision_transforms(),
 }
-
-
+    
 def create_transforms(transforms_dict: dict[str, dict[str, any]]) -> transformsv2.Compose:
     """Create a torchvision.transforms.Compose object from a dictionary of transforms.
 
@@ -255,16 +256,11 @@ def create_transforms(transforms_dict: dict[str, dict[str, any]]) -> transformsv
         transforms_dict: Dictionary of transforms. The keys are the names of the transforms and the values are the
             parameters to pass to the transform as a dictionary. Possible transforms are:
 
-            - "totensor": ToTensorv2
-            - "normalize": transformsv2.Normalize
-            - "horizontal_flip": transformsv2.RandomHorizontalFlip
-            - "vertical_flip": transformsv2.RandomVerticalFlip
-            - "rotation": transformsv2.RandomRotation
-            - "resized_crop": transformsv2.RandomResizedCrop
-            - "random_crop": transformsv2.RandomCrop
-            - "center_crop": transformsv2.CenterCrop
-            - "resize": transformsv2.Resize
-            - "clip_custom": ClipCustom
+            - "totensor": ToTensorv2. A custom transform that converts a PIL image to a tensor as done in torchvision's
+                original ToTensor transform.
+            - "clip_custom": ClipCustom.
+            - Any torchvision v2 transform among the color, geometry and type converions transforms. The name of the
+                transform should be in lowercase.
 
             Please refer to the [torchvision documentation](https://pytorch.org/vision/stable/transforms.html) for the
             parameters of each torchvision transform.

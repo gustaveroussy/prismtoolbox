@@ -115,7 +115,7 @@ class GenericEmbedderTransformers:
     def construct_model(self, **kwargs):
         if self.pretrained:
             return TransformersBasedModel(AutoModel.from_pretrained(self.name, **kwargs))
-        elif self.weights:
+        elif self.weights is not None:
             return TransformersBasedModel(
                 AutoModel.from_pretrained(self.weights, **kwargs)
             )
@@ -127,7 +127,7 @@ class GenericEmbedderTransformers:
             pretrained_transforms = partial(
                 AutoImageProcessor.from_pretrained(self.name), return_tensors="pt"
             )
-        elif self.weights:
+        elif self.weights is not None:
             pretrained_transforms = partial(
                 AutoImageProcessor.from_pretrained(self.weights), return_tensors="pt"
             )

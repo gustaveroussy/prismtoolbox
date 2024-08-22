@@ -33,6 +33,8 @@ class SlideEmbedder(BaseSlideHandler):
         batch_size: int,
         num_workers: int,
         arch_name: str | None = None,
+        custom_model: torch.nn.Module | None = None,
+        custom_model_name: str | None = None,
         pretrained_weights: str | None = None,
         transforms_dict: dict[str, dict[str, any]] | None = None,
         device: str = "cuda",
@@ -41,7 +43,7 @@ class SlideEmbedder(BaseSlideHandler):
         patch_size: int | None = None,
         patch_level: int | None = None,
         patch_downsample: int | None = None,
-        need_login: bool = False,
+        hug_login: str | None = None,
     ):
         """The SlideEmbedder class is used to extract embeddings from patches extracted direclty from the slides.
 
@@ -51,6 +53,10 @@ class SlideEmbedder(BaseSlideHandler):
             num_workers: The number of workers to use for the dataloader.
             arch_name: The name of the architecture to use.
                 See [create_model][prismtoolbox.wsiemb.emb_utils.create_model] for available architectures.
+            custom_model: A custom model to use for creating the embeddings.
+                Should accept a batch of patches as input of shape (batch_size, channels, height, width)
+                and return the embeddings of shape (batch_size, embedding_dim).
+            custom_model_name: The name of the custom model (if used).
             pretrained_weights: The path to the pretrained weights or the name of the pretrained weights. See
                 [create_model][prismtoolbox.wsiemb.emb_utils.create_model] for available weights for each architecture.
             transforms_dict: The dictionary of transforms to use.
@@ -63,7 +69,7 @@ class SlideEmbedder(BaseSlideHandler):
             patch_size: The size of the patches. If None, it will be extracted from the hdf5 files.
             patch_level: The level of the patches. If None, it will be extracted from the hdf5 files.
             patch_downsample: The downsample of the patches. If None, it will be extracted from the hdf5 files.
-            need_login: Whether to login to the HuggingFace Hub (for Uni and Conch models).
+            hug_login: The login to use for the HuggingFace Hub (for Uni and Conch models).
 
         Attributes:
             slide_dir: The directory containing the slides.
@@ -76,7 +82,9 @@ class SlideEmbedder(BaseSlideHandler):
             patch_size: The size of the patches.
             patch_level: The level of the patches.
             patch_downsample: The downsample of the patches.
-            arch_name: The name of the architecture to use.
+            arch_name: The name of the architecture to use. If custom_model was provided,
+                the name of the custom model. If no custom_model_name was provided, the name of the custom model
+                will be the class name of the custom model.
             model: The model to use for creating the embeddings.
             pretrained_transforms: The transforms used for the pretrained model.
             model_based_embeddings: A dictionary containing the extracted embeddings for each slide
@@ -102,10 +110,10 @@ class SlideEmbedder(BaseSlideHandler):
             patch_downsample,
         )
 
-        if need_login:
+        if hug_login is not None:
             from huggingface_hub import login
 
-            login()
+            login(hug_login)
 
         self.device = device
         self.arch_name = arch_name
@@ -118,7 +126,16 @@ class SlideEmbedder(BaseSlideHandler):
             )
             self.model.eval()
             self.model.to(self.device)
+        elif custom_model is not None:
+            self.model = custom_model
+            self.pretrained_transforms = None
+            self.arch_name = custom_model_name if custom_model_name is not None else custom_model.__class__.__name__
+            self.model.eval()
+            self.model.to(self.device)
         else:
+            log.warning(
+                "No architecture name or custom model provided. Please provide an architecture name or a custom model."
+            )
             self.model = None
             self.pretrained_transforms = None
 
@@ -135,14 +152,12 @@ class SlideEmbedder(BaseSlideHandler):
         Returns:
             The transforms to use when loading the patches.
         """
-        if self.transforms_dict is not None:
+        if self.pretrained_transforms is None:
+            log.info("No pretrained transforms found, using transforms dict.")
             transforms = super().get_transforms()
-        elif self.pretrained_transforms is not None:
+        else:
             log.info("No transforms dict found, using pretrained transforms.")
             transforms = self.pretrained_transforms
-        else:
-            log.info("No transforms dict or pretrained transforms found.")
-            transforms = None
         return transforms
 
     def extract_model_based_embeddings(
@@ -448,28 +463,32 @@ class SlideEmbedder(BaseSlideHandler):
 class PatchEmbedder(BasePatchHandler):
     def __init__(
         self,
-        arch_name: str,
         batch_size: int,
         num_workers: int,
+        arch_name: str | None = None,
+        custom_model: torch.nn.Module | None = None,
         pretrained_weights: str | None = None,
         transforms_dict: dict[str, dict[str, any]] | None = None,
         device: str = "cuda",
-        need_login: bool = False,
+        hug_login: str | None = None,
     ):
         """The PatchEmbedder class is used to extract embeddings from patches extracted as images in a folder.
 
         Args:
-            arch_name: The name of the architecture to use.
-                See [create_model][prismtoolbox.wsiemb.emb_utils.create_model] for available architectures.
             batch_size: The batch size to use for the dataloader.
             num_workers: The number of workers to use for the dataloader.
+            arch_name: The name of the architecture to use.
+                See [create_model][prismtoolbox.wsiemb.emb_utils.create_model] for available architectures.
+            custom_model: A custom model to use for creating the embeddings.
+                Should accept a batch of patches as input of shape (batch_size, channels, height, width)
+                and return the embeddings of shape (batch_size, embedding_dim).
             pretrained_weights: The path to the pretrained weights or the name of the pretrained weights. See
                 [create_model][prismtoolbox.wsiemb.emb_utils.create_model] for available weights for each architecture.
             transforms_dict: The dictionary of transforms to use.
                 See [create_transforms][prismtoolbox.utils.torch_utils.create_transforms] for more information.
                 If None, the pretrained transforms will be used.
             device: The device to use for the model.
-            need_login: Whether to login to the HuggingFace Hub (for Uni and Conch models).
+            hug_login: The login to use for the HuggingFace Hub (for Uni and Conch models).
 
         Attributes:
             batch_size: The batch size to use for the dataloader.
@@ -484,19 +503,33 @@ class PatchEmbedder(BasePatchHandler):
         super().__init__(batch_size, num_workers, transforms_dict)
         self.device = device
 
-        if need_login:
+        if hug_login is not None:
             from huggingface_hub import login
 
-            login()
-
-        self.model, self.pretrained_transforms = create_model(
-            arch_name, pretrained_weights
-        )
-        log.info(
-            f"Model {arch_name} loaded with pretrained weights {pretrained_weights}."
-        )
-        self.model.eval()
-        self.model.to(self.device)
+            login(hug_login)
+        
+        self.arch_name = arch_name
+        if arch_name is not None:
+            self.model, self.pretrained_transforms = create_model(
+                arch_name, pretrained_weights
+            )
+            log.info(
+                f"Model {arch_name} loaded with pretrained weights {pretrained_weights}."
+            )
+            self.model.eval()
+            self.model.to(self.device)
+        elif custom_model is not None:
+            self.model = custom_model
+            self.pretrained_transforms = None
+            self.arch_name = custom_model.__class__.__name__
+            self.model.eval()
+            self.model.to(self.device)
+        else:
+            log.warning(
+                "No architecture name or custom model provided. Please provide an architecture name or a custom model."
+            )
+            self.model = None
+            self.pretrained_transforms = None
 
         self.embeddings = {}
 
@@ -506,14 +539,12 @@ class PatchEmbedder(BasePatchHandler):
         Returns:
             The transforms to use when loading the patches.
         """
-        if self.transforms_dict is not None:
+        if self.pretrained_transforms is None:
+            log.info("No pretrained transforms found, using transforms dict.")
             super().get_transforms()
-        elif self.pretrained_transforms is not None:
+        else:
             log.info("No transforms dict found, using pretrained transforms.")
             transforms = self.pretrained_transforms
-        else:
-            log.info("No transforms dict or pretrained transforms found.")
-            transforms = None
         return transforms
 
     def extract_embeddings(self, img_folder, show_progress: bool = True):

@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pytest
 import numpy as np
+import torch.nn as nn
+from torchvision.models import resnet18
 from prismtoolbox import WSI
 from prismtoolbox.wsiemb import SlideEmbedder, PatchEmbedder
 
@@ -76,13 +78,15 @@ class TestSlideEmbedder():
         self.embeddings_dir = "./embeddings"
         self.slide_embedders = []
     
-    @pytest.mark.parametrize("coord_dir,arch_name,pretrained_weights,transforms_dict,batch_size,num_workers,device", [
-        (None,"clam", "IMAGENET1K_V2", {"totensor": {}, "normalize": {"mean": [0.485, 0.456, 0.406], "std": [0.229, 0.224, 0.225]}}, 1, 1, "cpu"),
-        ("./coords", "phikon", None, None, 8, 2, "cpu")])
+    @pytest.mark.parametrize("coord_dir,arch_name,custom_model,pretrained_weights,transforms_dict,batch_size,num_workers,device", [
+        (None,"clam", None, "IMAGENET1K_V2", {"totensor": {}, "normalize": {"mean": [0.485, 0.456, 0.406], "std": [0.229, 0.224, 0.225]}}, 1, 1, "cpu"),
+        ("./coords", "phikon", None, None, None, 8, 2, "cpu"),
+        ("./coords", None, resnet18(pretrained=True), None, None, 4, 4, "cuda")])
     def test_extract_model_based_embeddings(
         self,
         coord_dir,
-        arch_name, 
+        arch_name,
+        custom_model, 
         pretrained_weights, 
         transforms_dict, 
         batch_size,
@@ -100,12 +104,16 @@ class TestSlideEmbedder():
             patch_size = None
             patch_downsample = None
         
+        if custom_model is not None:
+            custom_model.fc = nn.Identity()
+        
         slide_embedder = SlideEmbedder(slide_dir="./slides", 
                                        coords_dir=coord_dir,
                                        patch_level=patch_level,
                                        patch_size=patch_size,
                                        patch_downsample=patch_downsample,
                                        arch_name=arch_name,
+                                       custom_model=custom_model,
                                        pretrained_weights=pretrained_weights,
                                        transforms_dict=transforms_dict,
                                        batch_size=batch_size,
@@ -123,12 +131,15 @@ class TestSlideEmbedder():
                 slide_embedder.extract_model_based_embeddings(slide_name, slide_ext=slide_ext, coords=coords)
                 assert slide_name in slide_embedder.model_based_embeddings.keys()
                 assert len(slide_embedder.model_based_embeddings[slide_name]) == self.n_samples_coords
-                if arch_name == "clam":
+                if slide_embedder.arch_name == "clam":
                     assert slide_embedder.model_based_embeddings[slide_name].shape[-1] == 1024
                     assert len(slide_embedder.model_based_embedding_names) == 1024
-                elif arch_name == "phikon":
+                elif slide_embedder.arch_name == "phikon":
                     assert slide_embedder.model_based_embeddings[slide_name].shape[-1] == 768
                     assert len(slide_embedder.model_based_embedding_names) == 768
+                elif slide_embedder.arch_name == "ResNet":
+                    assert slide_embedder.model_based_embeddings[slide_name].shape[-1] == 512
+                    assert len(slide_embedder.model_based_embedding_names) == 512
                 else:
                     raise ValueError(f"Unknown architecture name {arch_name}")
             self.slide_embedders.append(slide_embedder)
