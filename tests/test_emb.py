@@ -81,7 +81,7 @@ class TestSlideEmbedder():
     @pytest.mark.parametrize("coord_dir,arch_name,custom_model,pretrained_weights,transforms_dict,batch_size,num_workers,device", [
         (None,"clam", None, "IMAGENET1K_V2", {"totensor": {}, "normalize": {"mean": [0.485, 0.456, 0.406], "std": [0.229, 0.224, 0.225]}}, 1, 1, "cpu"),
         ("./coords", "phikon", None, None, None, 8, 2, "cpu"),
-        ("./coords", None, resnet18(pretrained=True), None, None, 4, 4, "cuda")])
+        ("./coords", None, resnet18(pretrained=True), None, None, 4, 4, "cpu")])
     def test_extract_model_based_embeddings(
         self,
         coord_dir,
