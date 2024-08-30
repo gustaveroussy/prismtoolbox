@@ -142,7 +142,7 @@ class PathoDuet(VisionTransformer):
         h, w = self.patch_embed.grid_size
         grid_w = torch.arange(w, dtype=torch.float32)
         grid_h = torch.arange(h, dtype=torch.float32)
-        grid_w, grid_h = torch.meshgrid(grid_w, grid_h)
+        grid_w, grid_h = torch.meshgrid(grid_w, grid_h, indexing='ij')
         assert (
             self.embed_dim % 4 == 0
         ), "Embed dimension must be divisible by 4 for 2D sin-cos position embedding"

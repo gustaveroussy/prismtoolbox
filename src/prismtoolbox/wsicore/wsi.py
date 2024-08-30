@@ -739,7 +739,7 @@ class WSI:
             log.info("Extracting patches with 'roi' mode.")
             assert self.ROI is not None
             roi_dim = self.ROI[0], self.ROI[1], self.ROI_width, self.ROI_height
-            log.info("Processing ROI of dimensions:", roi_dim)
+            log.info(f"Processing ROI of dimensions: {roi_dim}")
             valid_coords = self.extract_patches_roi(
                 patch_level,
                 patch_size,
@@ -751,7 +751,7 @@ class WSI:
             )
         elif mode == "all":
             roi_dim = 0, 0, self.level_dimensions[0][0], self.level_dimensions[0][1]
-            log.info("Processing ROI of dimensions:", roi_dim)
+            log.info(f"Processing ROI of dimensions: {roi_dim}")
             valid_coords = self.extract_patches_roi(
                 patch_level,
                 patch_size,
