@@ -26,7 +26,7 @@ class EmbeddingProcessor:
         embeddings_names: list[str] | str | None = None,
         slide_ids: list[str] | None = None,
         cmap: str = "Set1",
-        seed: int = None,
+        seed: int = 123,
     ):
         """_summary_
 
@@ -137,7 +137,7 @@ class EmbeddingProcessor:
         self,
         n_samples: int | float,
         by_slide: bool = True,
-        labels: np.ndarray | None = False,
+        labels: np.ndarray | None = None,
     ) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
         """Creates a subsample version of the embeddings matrix.
 
@@ -384,6 +384,7 @@ class EmbeddingProcessor:
         Returns:
             The cluster percentages for the slide.
         """
+        assert self.n_clusters is not None, "no cluster model created, please create a cluster model first"
         cluster_assignments = self.get_cluster_assignments_for_slide(
             slide_id, normalize, selected_features
         )
@@ -411,12 +412,18 @@ class EmbeddingProcessor:
         """
         assert (
             self.n_clusters is not None
+            and self.cluster_model is not None
+            and self.cluster_colors is not None
         ), "no cluster model created, please create a cluster model first"
         cluster_assignments = self.get_cluster_assignments_for_slide(
             WSI_object.slide_name,
             normalize,
             selected_features,
         )
+        if WSI_object.coords is None:
+            raise ValueError(
+                "WSI object has no coordinates, please make sure the WSI object is properly initialized"
+            )
         idx = np.arange(len(WSI_object.coords))
         assert len(cluster_assignments) == len(
             idx

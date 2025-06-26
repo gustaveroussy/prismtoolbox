@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 import torch
 from tqdm import tqdm
+from typing import Any
 
 from prismtoolbox.utils.data_utils import read_json_with_geopandas
 from prismtoolbox.utils.torch_utils import BasePatchHandler, BaseSlideHandler
@@ -36,7 +37,7 @@ class SlideEmbedder(BaseSlideHandler):
         custom_model: torch.nn.Module | None = None,
         custom_model_name: str | None = None,
         pretrained_weights: str | None = None,
-        transforms_dict: dict[str, dict[str, any]] | None = None,
+        transforms_dict: dict[str, dict[str, Any]] | None = None,
         device: str = "cuda",
         engine: str = "openslide",
         coords_dir: str | None = None,
@@ -250,8 +251,8 @@ class SlideEmbedder(BaseSlideHandler):
         self,
         slide_name: str,
         slide_ext: str,
+        cells_path: str,
         coords: np.ndarray | None = None,
-        cells_path: str | None = None,
         cell_classes: list[str] | None = None,
         with_offset: bool = True,
         show_progress: bool = True,
@@ -282,9 +283,15 @@ class SlideEmbedder(BaseSlideHandler):
             raise ValueError(
                 "The 'classification' column is missing in the cells dataframe."
             )
-        cell_classes = (
-            cells_df.classification.unique() if cell_classes is None else cell_classes
-        )
+        if cell_classes is None:
+            log.info(
+                "No cell classes provided, using all unique classifications from the cells dataframe."
+            )
+            cell_classes = list(cells_df.classification.unique())
+        else:
+            log.info(
+                f"Using the provided cell classes: {cell_classes}. If you want to use all unique classifications from the cells dataframe, set cell_classes to None."
+            )
         self.cell_based_embedding_names = [
             f"{cell_class}_{feature}"
             for cell_class in cell_classes
@@ -298,7 +305,12 @@ class SlideEmbedder(BaseSlideHandler):
             dataloader,
             desc=f"Extracting cell based features from the patches of {slide_name}",
             disable=not show_progress,
-        ):
+        ):  
+            if coords is None:
+                log.warning(
+                    f"No coordinates found for slide {slide_name}. Skipping cell based embedding extraction."
+                )
+                continue
             if self.num_workers > 1:
                 cells_df_in_patches = pool.starmap(
                     get_cells_in_patch,
@@ -468,7 +480,7 @@ class PatchEmbedder(BasePatchHandler):
         arch_name: str | None = None,
         custom_model: torch.nn.Module | None = None,
         pretrained_weights: str | None = None,
-        transforms_dict: dict[str, dict[str, any]] | None = None,
+        transforms_dict: dict[str, dict[str, Any]] | None = None,
         device: str = "cuda",
         hug_login: str | None = None,
     ):
@@ -555,6 +567,7 @@ class PatchEmbedder(BasePatchHandler):
                 For example, img_folder could be a folder where the subfolders correspond to different slides.
             show_progress: Whether to show the progress bar.
         """
+        assert self.model is not None, "Model not found. Please provide an architecture name when initializing the PatchEmbedder."
         log.info(f"Extracting embeddings from images in {img_folder}.")
         dataset = self.create_dataset(img_folder=img_folder)
         dataloader = self.create_dataloader(dataset)
