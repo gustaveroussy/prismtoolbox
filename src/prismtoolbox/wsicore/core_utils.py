@@ -209,15 +209,14 @@ def contour_mask(mask: np.ndarray) -> list[np.ndarray]:
     """
     contours = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     contours = contours[0] if len(contours) == 2 else contours[1]
-    return contours
-
+    return [np.array(contour) for contour in contours]
 
 class IsInContour:
     def __init__(
         self,
         contour: np.ndarray,
         patch_size: int,
-        center_shift: int = 0.5,
+        center_shift: float = 0.5,
         mode: str = "center",
     ):
         """The IsInContour class checks if a patch is inside a contour.
@@ -320,7 +319,7 @@ def isWhitePatch(
 def save_patches_with_hdf5(
     output_path: str,
     asset_dict: dict[str, np.ndarray],
-    attr_dict: dict[str, dict[str, str | int | tuple[int, int]]] = None,
+    attr_dict: dict[str, dict[str, str | int | tuple[int, int]]] | None = None,
 ) -> None:
     """Save patches to an HDF5 file.
 
