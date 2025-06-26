@@ -236,10 +236,12 @@ class BasePatchHandler:
 
 def get_torchvision_transforms() -> dict[str, transformsv2.Transform]:
     torchvision_transforms = {}
-    accepted_type = ["color", "geometry", "type_conversion"]
+    #accepted_type = ["color", "geometry", "type_conversion"]
+    to_remove = ["ToTensor"]
     for name, obj in inspect.getmembers(transformsv2):
         if inspect.isclass(obj) and issubclass(obj, transformsv2.Transform):
-            if any(transform_type in inspect.getfile(obj) for transform_type in accepted_type):
+            if name not in to_remove:
+                #if any(transform_type in inspect.getfile(obj) for transform_type in accepted_type):
                 torchvision_transforms[name.lower()] = obj
     return torchvision_transforms
 
@@ -259,8 +261,7 @@ def create_transforms(transforms_dict: dict[str, dict[str, any]]) -> transformsv
             - "totensor": ToTensorv2. A custom transform that converts a PIL image to a tensor as done in torchvision's
                 original ToTensor transform.
             - "clip_custom": ClipCustom.
-            - Any torchvision v2 transform among the color, geometry and type converions transforms. The name of the
-                transform should be in lowercase.
+            - Any torchvision v2 transform. The name of the transform should be in lowercase.
 
             Please refer to the [torchvision documentation](https://pytorch.org/vision/stable/transforms.html) for the
             parameters of each torchvision transform.
