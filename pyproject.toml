@@ -25,6 +25,7 @@ uuid = "^1.30"
 pandas = "^2.2.1"
 numpy = "^1.26.4"
 geopandas = "^1.0.1"
+typer = "^0.16.0"
 
 torch = { version = "^2.2.2", optional = true }
 torchvision = { version = "^0.17.2", optional = true }
@@ -88,3 +89,6 @@ exclude = '''
 [tool.isort]
 profile = "black"
 skip_glob = ["*/__init__.py"]
+
+[tool.poetry.scripts]
+ptb = "prismtoolbox.cli.main:app"
