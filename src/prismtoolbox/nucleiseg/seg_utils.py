@@ -65,7 +65,7 @@ def solve_conflicts(
     cells: list[Polygon],
     threshold: float = 0.5,
     return_indices: bool = False,
-) -> np.ndarray[Polygon] | tuple[np.ndarray[Polygon], np.ndarray]:
+) -> MultiPolygon | tuple[MultiPolygon, np.ndarray]:
     """Resolve segmentation conflicts (i.e. overlap) after running segmentation on patches
 
     Args:

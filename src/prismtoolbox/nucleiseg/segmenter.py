@@ -173,7 +173,7 @@ class NucleiSegmenter(BaseSlideHandler):
 
     def save_nuclei(self, output_directory, slide_ext, flush_memory=True):
         for slide_name, nuclei in self.nuclei_seg.items():
-            WSI_object = WSI(os.path.join(self.slide_dir, f"{slide_name}.{slide_ext}"))
+            WSI_object = WSI(os.path.join(self.slide_dir, f"{slide_name}.{slide_ext}"), engine=self.engine)
             offset = WSI_object.offset
             output_path = os.path.join(output_directory, f"{slide_name}.geojson")
             export_polygons_to_qupath(
