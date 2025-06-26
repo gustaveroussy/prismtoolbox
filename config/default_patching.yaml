@@ -1,0 +1,16 @@
+# Default configuration for PrismToolBox patching
+
+# Patch extraction parameters
+patching:
+  patch_level: 0 # (float) Level of the slide to extract patches from. 
+  patch_size: 256 # (float) Size of the patches to extract. 
+  overlap: 0 # (float) Overlap between the patches. 
+  units: ["px", "px"] # (str, str) Units for the patch size and overlap. Options are 'pixels' or 'micro' for micrometers.
+  contours_mode: "four_pt" #  (str) The mode to use for the contour checking. Possible values are center, four_pt, and four_pt_hard.
+  rgb_threshs: [2, 240] # (int, int) The thresholds for the RGB channels (black threshold, white threshold).
+  percentages: [0.6, 0.9] # (float, float) The percentages of pixels below/above the thresholds to consider the patch as black/white.
+
+# Patch stitching parameters
+stitching:
+  vis_level: 2 # (int) Level of the slide to stitch the patches at.
+  draw_grid: false # (bool) Whether to draw a grid on the stitched image.

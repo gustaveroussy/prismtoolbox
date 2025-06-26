@@ -8,10 +8,14 @@ theme:
     primary: blue grey
   features:
     - navigation.tabs
+    - navigation.indexes
+    - toc.integrate
+    - toc.follow
 nav:
 - Home: index.md
 # defer to gen-files + literate-nav
 - API:
+    - Overview: api_index.md
     - prismtoolbox.wsicore:
       - prismtoolbox.wsicore.wsi: reference/prismtoolbox/wsicore/wsi.md
       - prismtoolbox.wsicore.core_utils: reference/prismtoolbox/wsicore/core_utils.md
@@ -20,6 +24,9 @@ nav:
         - prismtoolbox.wsiemb.processing: reference/prismtoolbox/wsiemb/processing.md
         - prismtoolbox.wsiemb.emb_utils: reference/prismtoolbox/wsiemb/emb_utils.md
     - prismtoolbox.nucleiseg: reference/prismtoolbox/nucleiseg/segmenter.md
+- CLI:
+    - Preprocessing: cli/preprocessing.md
+- Examples: examples/index.md
 # rest of the navigation...
 plugins:
   - search
