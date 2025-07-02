@@ -93,10 +93,6 @@ class WSI:
         self.engine = engine
         self.slide_name, self.slide_ext = self.retrieve_slide_name_ext(self.slide_path)
         self.slide = self.read(slide_path, engine)
-        self.dimensions = None
-        self.level_dimensions = None
-        self.level_downsamples = None
-        self.properties = None
         self.offset = (0, 0)
         self.set_slide_attributes()
         self.ROI = None
@@ -116,8 +112,15 @@ class WSI:
         Returns:
             A tuple (slide name, slide ext).
         """
-        slide_ext = re.search(r"(?<=\.)[\w\.]+$", slide_path).group(0)
-        slide_name = re.search(r"([^/]+?)(?=\.[\w\.]+$)", slide_path).group(0)
+        slide_name = re.search(r"([^/]+?)(?=\.[\w\.]+$)", slide_path)
+        slide_ext = re.search(r"(?<=\.)[\w\.]+$", slide_path)
+        if slide_ext is None or slide_name is None:
+            raise ValueError(
+                f"Could not retrieve slide name and extension from {slide_path}. "
+                "Please check the file path."
+            )
+        else:
+            slide_name, slide_ext = slide_name.group(0), slide_ext.group(0)
         return slide_name, slide_ext
 
     @staticmethod
@@ -149,7 +152,7 @@ class WSI:
     @staticmethod
     def scale_contours(
         contours: list[np.ndarray],
-        scale: int,
+        scale: float,
     ) -> list[np.ndarray]:
         """Scale the contours by a given factor.
 
@@ -222,7 +225,7 @@ class WSI:
         """
         if cont_check_fn is None or cont_check_fn(coord):
             patch = wsi.read_region(
-                tuple(coord), patch_level, (patch_size, patch_size)
+                coord, patch_level, (patch_size, patch_size)
             ).convert("RGB")
             if not WSI.is_black_white(patch, rgb_threshs, percentages):
                 return coord
@@ -280,7 +283,7 @@ class WSI:
         from_unit: str,
         to_unit: str = "px",
         axis: str = "x",
-    ) -> int:
+    ) -> int | float:
         """Convert a value from one unit to another.
 
         Args:
@@ -337,7 +340,7 @@ class WSI:
         else:
             tissue_contours = self.tissue_contours
         if not os.path.isdir(save_dir):
-            log.warning(f"Folder {save_dir} does not exist, creating new folder...")
+            log.info(f"Folder {save_dir} does not exist, creating new folder...")
             pathlib.Path(save_dir).mkdir(parents=True, exist_ok=True)
         if file_format == "pickle":
             file_path = os.path.join(save_dir, f"{self.slide_name}.pkl")
@@ -393,15 +396,24 @@ class WSI:
             color: An optional color to assign to the patches (for geojson format only).
             append_to_existing_file: Set to True to append the patches to an existing geojson file.
         """
+        if self.coords is None:
+            raise ValueError(
+                "No patches found. Please check if patches were correctly extracted."
+            )
+        if self.coords_attrs is None:
+            raise ValueError(
+                "No attributes set for the patches. "
+                "Please check if patches were correctly extracted."
+            )
         if selected_idx is not None:
-            coords = self.coords[selected_idx]
+            coords = np.array(self.coords[selected_idx])
         else:
-            coords = self.coords
+            coords = np.array(self.coords)
         if not os.path.isdir(save_dir):
-            log.warning(f"Folder {save_dir} does not exist, creating new folder...")
+            log.info(f"Folder {save_dir} does not exist, creating new folder...")
             pathlib.Path(save_dir).mkdir(parents=True, exist_ok=True)
         if file_format == "h5":
-            asset_dict = {"coords": self.coords}
+            asset_dict = {"coords": coords}
             attr_dict = {"coords": self.coords_attrs}
             file_path = os.path.join(save_dir, f"{self.slide_name}.h5")
             log.info(
@@ -431,7 +443,7 @@ class WSI:
         elif file_format == "jpg" or file_format == "png":
             save_dir = os.path.join(save_dir, self.slide_name)
             if not os.path.isdir(save_dir):
-                log.warning(f"Folder {save_dir} does not exist, creating new folder...")
+                log.info(f"Folder {save_dir} does not exist, creating new folder...")
                 pathlib.Path(save_dir).mkdir(parents=True, exist_ok=True)
             log.info(
                 f"Saving {len(coords)} patches for slide {self.slide_name} at {save_dir} with {file_format}."
@@ -512,24 +524,24 @@ class WSI:
         Returns:
             A thumbnail of the slide as a PIL image.
         """
-        assert self.ROI is not None if crop_roi else True, (
-            "No ROI provided, while crop_roi is set to True. Please set a ROI for "
-            "the slide or set crop_roi to False."
-        )
         thumb = self.read_region((0, 0), level, self.level_dimensions[level]).convert(
             "RGB"
         )
         if crop_roi:
+            if self.ROI is None:
+                raise ValueError(
+                    "ROI is not set for the slide, please set the ROI with the set_roi method."
+                )
             log.info(f"Creating thumbnail with ROI {self.ROI}.")
             coords_roi = (self.ROI / self.level_downsamples[level]).astype(int)
-            thumb = thumb.crop(coords_roi)
+            thumb = thumb.crop(tuple(coords_roi))
         return thumb
 
     def set_roi(
         self,
         roi: tuple[int, int, int, int] | None = None,
         rois_df_path: str | None = None,
-    ) -> None:
+    ) -> np.ndarray:
         """Set the region of interest for the slide. Can be set manually or by selecting
         a region on a thumbnail. The ROI is stored as a tuple in the ROI attribute.
 
@@ -551,7 +563,7 @@ class WSI:
                 f"No ROI was provided, please select a level at which the ROI should be created (max level: {len(self.level_dimensions)-1}): "
             )
             if not level:
-                log.warning("No level provided, setting the ROI at the highest level.")
+                log.info("No level provided, setting the ROI at the highest level.")
                 level = len(self.level_downsamples) - 1
             else:
                 level = int(level)
@@ -695,18 +707,18 @@ class WSI:
             percentages: The tuple of percentages of pixels below/above the thresholds to consider the patch as
                 black/white.
         """
-        assert (
-            step_size is not None or overlap is not None
-        ), "Either step_size or overlap must be provided"
         assert all(
             [unit in ["micro", "px"] for unit in units]
         ), "Units must be either 'micro' or 'px'"
-
-        patch_size = self.convert_units(patch_size, patch_level, units[0])
+        patch_size = int(self.convert_units(patch_size, patch_level, units[0]))
         if step_size is None:
-            step_size = patch_size - self.convert_units(overlap, patch_level, units[1])
+            if overlap is None:
+                raise ValueError(
+                    "Either step_size or overlap must be provided if step_size is not set"
+                )
+            step_size = int(patch_size - self.convert_units(overlap, patch_level, units[1]))
         else:
-            step_size = self.convert_units(step_size, patch_level, units[1])
+            step_size = int(self.convert_units(step_size, patch_level, units[1]))
 
         log.info(
             f"Extracting patches of size {patch_size} at level {patch_level} with step size {step_size}."
@@ -719,7 +731,7 @@ class WSI:
             assert contours_mode is not None
             valid_coords = []
             for cont in self.tissue_contours:
-                roi_dim = cv2.boundingRect(cont)
+                roi_dim = cv2.boundingRect(cont) # type: ignore
                 log.info(f"Processing ROI of dimensions: {roi_dim}")
                 valid_coords.extend(
                     self.extract_patches_roi(
@@ -737,7 +749,10 @@ class WSI:
             valid_coords = np.array(valid_coords)
         elif mode == "roi":
             log.info("Extracting patches with 'roi' mode.")
-            assert self.ROI is not None
+            if self.ROI is None or self.ROI_width is None or self.ROI_height is None:
+                raise ValueError(
+                    "ROI is not set for the slide, please set the ROI with the set_roi method."
+                )
             roi_dim = self.ROI[0], self.ROI[1], self.ROI_width, self.ROI_height
             log.info(f"Processing ROI of dimensions: {roi_dim}")
             valid_coords = self.extract_patches_roi(
@@ -774,7 +789,7 @@ class WSI:
         }
 
         if len(valid_coords) == 0:
-            log.warning(f"No valid coordinates found for slide {self.slide_name}.")
+            log.info(f"No valid coordinates found for slide {self.slide_name}.")
         else:
             print(
                 f"Identified a total of {len(valid_coords)}  valid coordinates in the slide {self.slide_name}."
@@ -795,7 +810,7 @@ class WSI:
         rgb_threshs: tuple[int, int] = (2, 220),
         percentages: tuple[float, float] = (0.6, 0.9),
         return_indices: bool = False,
-    ) -> np.ndarray:
+    ) -> np.ndarray | tuple[np.ndarray, list[int]]:
         """Extract valid patches from a region of interest, i.e if the patch is not
         black or white and is within the region of interest/contours if relevant).
 
@@ -821,19 +836,14 @@ class WSI:
         Returns:
             An array of valid coordinates for the patches (i.e. coordinates of the top-left corner of the patches).
         """
-        assert contours_mode is not None if contour is not None else True, (
-            "A contour mode must be provided if patch "
-            "extraction mode is set to contours"
-        )
-        assert (
-            roi_dim is not None and step_size is not None
-        ) or coord_candidates is not None, (
-            "Either (roi_dim and step_size) or coord_candidates must be provided"
-        )
         patch_downsample = int(self.level_downsamples[patch_level])
         ref_patch_size = patch_size * patch_downsample
 
         if coord_candidates is None:
+            if roi_dim is None or step_size is None:
+                raise ValueError(
+                    "roi_dim and step_size must be provided if coord_candidates is not set"
+                )
             start_x, start_y, w, h = roi_dim
 
             img_w, img_h = self.level_dimensions[0]
@@ -855,6 +865,10 @@ class WSI:
             ).transpose()
 
         if contour is not None:
+            if contours_mode is None:
+                raise ValueError(
+                    "A contour mode must be provided if patch extraction mode is set to contours"
+                ) 
             cont_check_fn = IsInContour(
                 contour, patch_size=ref_patch_size, center_shift=0.5, mode=contours_mode
             )
@@ -932,10 +946,18 @@ class WSI:
             line_thickness = int(line_thickness * scale)
 
         if not view_slide_only:
-            assert (
-                len(self.tissue_contours) > 0
-            ), "No tissue contours found for the slide, please run the detect_tissue method first"
-            offset = self.ROI[:2] if crop_roi else np.array([0, 0])
+            if self.tissue_contours is None:
+                raise RuntimeError(
+                    "No tissue contours found for the slide, please run the detect_tissue method first"
+                )
+            if crop_roi:
+                if self.ROI is None:
+                    raise ValueError(
+                        "ROI is not set for the slide, please set the ROI with the set_roi method."
+                    )
+                offset = self.ROI[:2]
+            else:
+                offset = np.array([0, 0])
             contours = [cont - offset for cont in self.tissue_contours]
             contours = self.scale_contours(contours, scale)
             if len(contours) > 0:
@@ -988,8 +1010,8 @@ class WSI:
     def stitch(
         self,
         vis_level: int,
-        selected_idx: np.ndarray = None,
-        colors: np.ndarray = None,
+        selected_idx: np.ndarray | None = None,
+        colors: np.ndarray | None = None,
         alpha: float = 0.6,
         black_white: bool = False,
         draw_grid: bool = False,
@@ -1017,20 +1039,26 @@ class WSI:
         Returns:
             A PIL image of the stitched patches.
         """
-        assert self.ROI is not None if crop_roi else True, (
-            "no ROI provided, while crop_roi is set to True,"
-            " please set a ROI for the slide or set crop_roi to False."
-        )
+        if self.coords_attrs is None:
+            raise RuntimeError(
+                "No attributes set for the patches of the slide, please check if patches were correctly extracted."
+            )
         assert self.coords is not None, (
             "no coordinates provided for the patches to visualize, please run the "
             "extract_patches method first or load the coordinates from a file"
         )
         if crop_roi:
+            if self.ROI is None or self.ROI_width is None or self.ROI_height is None:
+                raise ValueError(
+                    "ROI is not set for the slide, please set the ROI with the set_roi method."
+                )
             w, h = int(np.ceil(self.ROI_width / self.level_downsamples[vis_level])), int(
                 np.ceil(self.ROI_height / self.level_downsamples[vis_level])
             )
+            offset = np.array(self.ROI[:2])
         else:
             w, h = self.level_dimensions[vis_level]
+            offset = np.array([0, 0])
         patch_size = self.coords_attrs["patch_size"]
         patch_level = self.coords_attrs["patch_level"]
         patch_size = int(patch_size * self.level_downsamples[patch_level])
@@ -1044,7 +1072,6 @@ class WSI:
             f"Stitching {len(idxs)} patches at level {vis_level} with patch size {patch_size}, "
             f"with colors {colors is not None}."
         )
-        offset = self.ROI[:2] if crop_roi else np.array([0, 0])
         for idx in idxs:
             coord = self.coords[idx]
             coord_downsampled = np.ceil(np.abs(coord - offset) / downsample_vis).astype(

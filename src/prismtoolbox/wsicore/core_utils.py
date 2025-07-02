@@ -192,7 +192,7 @@ def floodfill_img(img: np.ndarray, start: tuple[int, int]) -> np.ndarray:
     img_to_floodfill = img.copy()
     h, w = img.shape[:2]
     mask = np.zeros((h + 2, w + 2), np.uint8)
-    cv2.floodFill(img_to_floodfill, mask, start, 255)
+    cv2.floodFill(img_to_floodfill, mask, start, 255) # type: ignore
     im_floodfill_inv = cv2.bitwise_not(img_to_floodfill)
     img_out = img | im_floodfill_inv
     return img_out[1:-1, 1:-1]
@@ -350,6 +350,7 @@ def save_patches_with_hdf5(
                         dset.attrs[attr_key] = attr_val
         else:
             dset = file[key]
+            assert isinstance(dset, h5py.Dataset), f"Expected dataset, got {type(dset)} for key {key}."
             dset.resize(len(dset) + data_shape[0], axis=0)
             dset[-data_shape[0] :] = val
     file.close()

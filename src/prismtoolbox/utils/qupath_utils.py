@@ -18,7 +18,7 @@ def contoursToPolygons(
     contours: List[np.ndarray],
     merge: Optional[bool] = False,
     make_valid: Optional[bool] = False,
-) -> Union[Polygon, MultiPolygon]:
+) -> MultiPolygon:
     """Converts list of arrays to shapely polygons.
 
     :param contours: list of contours to convert to shapely polygons
@@ -31,19 +31,25 @@ def contoursToPolygons(
     for poly in polygons:
         if poly.is_empty:
             continue
-        if poly.geom_type == "MultiPolygon":
+        if isinstance(poly, MultiPolygon):
             result.append(max(poly.geoms, key=lambda x: x.area))
         else:
             result.append(poly)
     polygons = MultiPolygon(result)
     if make_valid and not polygons.is_valid:
-        polygons = polygons.buffer(0)
+        buffered = polygons.buffer(0)
+        if isinstance(buffered, Polygon):
+            polygons = MultiPolygon([buffered])
     if merge:
         polygons = unary_union(polygons)
+        if isinstance(polygons, Polygon):
+            polygons = MultiPolygon([polygons])
+    if not isinstance(polygons, MultiPolygon):
+        raise ValueError("Resulting polygons are not a MultiPolygon.")
     return polygons
 
 
-def PolygonsToContours(polygons: MultiPolygon):
+def PolygonsToContours(polygons: MultiPolygon) -> List[np.ndarray]:
     """Converts shapely polygons to list of arrays.
 
     :param polygons: shapely polygons to convert to arrays
@@ -57,10 +63,10 @@ def PolygonsToContours(polygons: MultiPolygon):
 
 def read_qupath_annotations(
     path: str,
-    offset: Optional[Tuple[int, int]] = (0, 0),
+    offset: tuple[int, int] = (0, 0),
     class_name: str = "annotation",
     column_to_select: str = "objectType",
-):
+) -> MultiPolygon:
     """Reads pathologist annotations from a .geojson file.
 
     :param path: path to the .geojson file
@@ -80,7 +86,11 @@ def read_qupath_annotations(
             raise ValueError("Geometry type not supported.")
     polygons = MultiPolygon(polygons)
     if not polygons.is_valid:
-        polygons = polygons.buffer(0)
+        buffered = polygons.buffer(0)
+        if isinstance(buffered, Polygon):
+            polygons = MultiPolygon([buffered])
+        if not isinstance(polygons, MultiPolygon):
+            raise ValueError("Resulting polygons are not a MultiPolygon.")
     return polygons
 
 
@@ -98,14 +108,14 @@ def convert_rgb_to_java_int_signed(rgb: Tuple[int, int, int]) -> int:
 
 
 def export_polygons_to_qupath(
-    polygons: MultiPolygon,
+    polygons: MultiPolygon | Polygon,
     path: str,
     object_type: str,
-    offset: Optional[Tuple[int, int]] = (0, 0),
-    label: Optional[str] = None,
-    color: Optional[Tuple[int, int, int]] = None,
-    append_to_existing_file: Optional[bool] = False,
-    as_feature_collection: Optional[bool] = False,
+    offset: tuple[int, int] = (0, 0),
+    label: str | None = None,
+    color: tuple[int, int, int] | None = None,
+    append_to_existing_file: bool = False,
+    as_feature_collection: bool = False,
 ):
     """Exports polygons to a .json or .geojson file.
 
@@ -121,8 +131,14 @@ def export_polygons_to_qupath(
     if isinstance(polygons, Polygon):
         polygons = MultiPolygon([polygons])
     features = []
-    properties = {"objectType": object_type}
+    properties = {}
+    properties["objectType"] = object_type
     if label is not None:
+        if color is None:
+            log.warning(
+                "No color provided for the label, using default color (255, 0, 0)."
+            )
+            color = (255, 0, 0)
         properties["classification"] = {
             "name": label,
             "colorRGB": convert_rgb_to_java_int_signed(color),
@@ -150,7 +166,7 @@ def export_polygons_to_qupath(
             )
         else:
             if as_feature_collection:
-                previous_features["features"].extend(features["features"])
+                previous_features["features"].extend(features["features"]) # type: ignore
             else:
                 previous_features.extend(features)
             features = previous_features
@@ -167,13 +183,13 @@ def intersectionPolygons(
     :return: MultiPolygon containing the intersection of the two input MultiPolygons
     """
     intersection = polygons1 & polygons2
-    if intersection.geom_type == "MultiPolygon":
+    if isinstance(intersection, MultiPolygon):
         return intersection
     elif intersection.geom_type == "GeometryCollection":
         intersection = MultiPolygon(
-            [poly for poly in intersection.geoms if isinstance(poly, Polygon)]
+            [poly for poly in intersection.geoms if isinstance(poly, Polygon)] # type: ignore
         )
-    elif intersection.geom_type == "Polygon":
+    elif isinstance(intersection, Polygon):
         intersection = MultiPolygon([intersection])
     else:
         raise ValueError(
@@ -187,7 +203,7 @@ def patchesToPolygons(
     patch_size: int,
     patch_downsample: int,
     merge: Optional[bool] = False,
-) -> Union[Polygon, MultiPolygon]:
+) -> MultiPolygon:
     """Converts patches to shapely polygons.
 
     :param patches: Top left point coordinates of the patches to convert to shapely polygons
@@ -203,4 +219,8 @@ def patchesToPolygons(
     polygons = MultiPolygon(polygons)
     if merge:
         polygons = unary_union(polygons)
+        if isinstance(polygons, Polygon):
+            polygons = MultiPolygon([polygons])
+    if not isinstance(polygons, MultiPolygon):
+        raise ValueError("Resulting polygons are not a MultiPolygon.")
     return polygons

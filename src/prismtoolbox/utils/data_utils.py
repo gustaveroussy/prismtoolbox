@@ -68,9 +68,15 @@ def read_h5_file(file_path: str, key: str) -> Tuple[np.ndarray, dict]:
         A dataset from the h5 file.
     """
     with h5py.File(file_path, "r") as f:
-        object = f[key][()]
-        attrs = {key: value for key, value in f[key].attrs.items()}
-    return object, attrs
+        if key not in f:
+            raise KeyError(f"Key '{key}' not found in the h5 file.")
+        dataset = f[key]
+        if isinstance(dataset, h5py.Dataset):
+            obj = dataset[()]
+            attrs = {k: v for k, v in dataset.attrs.items()}
+        else:
+            raise TypeError(f"Key '{key}' does not refer to a dataset in the h5 file.")
+    return obj, attrs
 
 
 def read_json_with_geopandas(
