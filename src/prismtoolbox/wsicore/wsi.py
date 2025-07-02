@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import warnings
+
+warnings.filterwarnings("ignore", module="tiffslide", category=UserWarning)
+
 import logging
 import multiprocessing as mp
 import os
 import pathlib
 import re
-import warnings
 
 import cv2
 import numpy as np
@@ -141,10 +144,8 @@ class WSI:
             slide = openslide.OpenSlide(slide_path)
         elif engine == "tiffslide":
             import tiffslide
-
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", category=UserWarning)
-                slide = tiffslide.TiffSlide(slide_path)
+            
+            slide = tiffslide.TiffSlide(slide_path)
         else:
             raise NotImplementedError(f"engine {engine} not supported")
         return slide

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import os
 import uuid
@@ -15,9 +17,9 @@ log = logging.getLogger(__name__)
 
 
 def contoursToPolygons(
-    contours: List[np.ndarray],
-    merge: Optional[bool] = False,
-    make_valid: Optional[bool] = False,
+    contours: list[np.ndarray],
+    merge: bool = False,
+    make_valid: bool = False,
 ) -> MultiPolygon:
     """Converts list of arrays to shapely polygons.
 
@@ -49,7 +51,7 @@ def contoursToPolygons(
     return polygons
 
 
-def PolygonsToContours(polygons: MultiPolygon) -> List[np.ndarray]:
+def PolygonsToContours(polygons: MultiPolygon) -> list[np.ndarray]:
     """Converts shapely polygons to list of arrays.
 
     :param polygons: shapely polygons to convert to arrays
@@ -94,7 +96,7 @@ def read_qupath_annotations(
     return polygons
 
 
-def convert_rgb_to_java_int_signed(rgb: Tuple[int, int, int]) -> int:
+def convert_rgb_to_java_int_signed(rgb: tuple[int, int, int]) -> int:
     """Converts RGB tuple to Java signed integer.
 
     :param rgb: RGB tuple
