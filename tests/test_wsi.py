@@ -121,9 +121,9 @@ class TestWSI():
                 contour_path = os.path.join(self.tissue_contours_folder, f"{WSI_object.slide_name}.pkl")
                 if os.path.exists(contour_path):
                     WSI_object.load_tissue_contours(contour_path)
-                    view_slide_only = True
-                else:
                     view_slide_only = False
+                else:
+                    view_slide_only = True
                 img = WSI_object.visualize(vis_level=len(WSI_object.level_dimensions) // 2,
                                            number_contours=True, view_slide_only=view_slide_only,
                                            crop_roi=crop_roi)
