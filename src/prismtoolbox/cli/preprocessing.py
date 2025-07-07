@@ -35,7 +35,7 @@ class PatchMode(str, Enum):
     all = "all"
     
 @app_preprocessing.command(no_args_is_help=True)
-def contouring(
+def contour(
     slide_directory: Annotated[str, typer.Argument(
         help="Path to the directory containing the files.")],
     results_directory: Annotated[str, typer.Argument(
@@ -52,7 +52,7 @@ def contouring(
     )] = [ContoursExtension.pickle],
     config_file: Annotated[str, typer.Option(
         help="Path to the configuration file for tissue extraction."
-    )] = "./config_contouring.yaml",
+    )] = None,
     visualize: Annotated[bool, typer.Option(
         help="Visualize the contours extracted.",
     )] = False,
@@ -62,15 +62,15 @@ def contouring(
     
     # Set default parameters
     params_detect_tissue = {
-        "seg_level": 2,
+        "seg_level": 4,
         "window_avg": 30,
-        "window_eng": 3,
-        "thresh": 120,
-        "area_min": 6e3,
+        "window_eng": 5,
+        "thresh": 190,
+        "area_min": 5e4,
     }
     
     params_visualize_WSI = {
-        "vis_level": 2,
+        "vis_level": 4,
         "number_contours": False,
         "line_thickness": 50,
     }
@@ -82,11 +82,11 @@ def contouring(
         # Load parameters from config file
         params_detect_tissue = load_config_file(config_file, 
                                                 dict_to_update=params_detect_tissue,
-                                                key_to_check='contouring')
+                                                key_to_check='contour_settings')
         if visualize:
             params_visualize_WSI = load_config_file(config_file,
                                                 dict_to_update=params_visualize_WSI,
-                                                key_to_check='visualizing')
+                                                key_to_check='visualization_settings')
         
     directory_contours = os.path.join(results_directory, f"contours")    
     Path(directory_contours).mkdir(parents=True, exist_ok=True)
@@ -119,11 +119,14 @@ def contouring(
     print("Contours extracted and saved successfully.")
     
 @app_preprocessing.command(no_args_is_help=True)
-def patching(
+def patchify(
     slide_directory: Annotated[str, typer.Argument(
         help="Path to the directory containing the files.")],
     results_directory: Annotated[str, typer.Argument(
         help="Path to the directory where the results will be saved.")],
+    roi_csv: Annotated[str | None, typer.Option(
+        help="Path to the file containing the ROI coordinates."
+    )] = None,
     contours_directory: Annotated[str | None, typer.Option(
         help="Path to the directory containing the contours annotations."
     )] = None,
@@ -137,10 +140,10 @@ def patching(
     mode: Annotated[PatchMode, typer.Option(
         help="The mode to use for patch extraction. Possible values are 'contours', 'roi', and 'all'.",
         case_sensitive=False,
-    )] = PatchMode.contours,
+    )] = PatchMode.all,
     config_file: Annotated[str, typer.Option(
         help="Path to the configuration file for patch extraction."
-    )] = "./config_patching.yaml",
+    )] = None,
     stitch: Annotated[bool, typer.Option(
         help="Whether to stitch the extracted patches into a single image for visualization.",
     )] = True,
@@ -148,12 +151,15 @@ def patching(
     """Extract patches from the slides in a specified directory."""
     import prismtoolbox as ptb
     assert mode == "contours" and contours_directory is not None, \
-        "If the mode is 'contours', you must provide a directory with contours annotations. Please use the `contouring` command to extract contours first."
-    
+        "If the mode is 'contours', you must provide a directory with contours annotations. " \
+        "Please use the `contour` command to extract contours first."
+    assert mode == "roi" and roi_csv is not None, \
+        "If the mode is 'roi', you must provide a file with the ROI coordinates."
+        
     # Set default parameters
     params_patches = {"patch_size": 256, "patch_level": 0, "overlap": 0,
                       "units": ["px", "px"], "contours_mode": "four_pt", "rgb_threshs": [2, 240], "percentages": [0.6, 0.9]}
-    params_stitch_WSI = {"vis_level": 2, "draw_grid": False}
+    params_stitch_WSI = {"vis_level": 4, "draw_grid": False}
     
     if not os.path.exists(config_file):
         log.info(f"Using default parameters for tissue extraction.")
@@ -161,16 +167,12 @@ def patching(
         log.info(f"Using parameters from config file: {config_file}")
         # Load parameters from config file
         params_patches = load_config_file(config_file, 
-                                        dict_to_update=params_patches,
-                                        key_to_check='patching')
+                                          dict_to_update=params_patches,
+                                          key_to_check='patch_settings')
         if stitch:
             params_stitch_WSI = load_config_file(config_file,
-                                                dict_to_update=params_stitch_WSI,
-                                                key_to_check='stitching')
-    
-    assert mode == "contours" and contours_directory is not None, \
-    "If the mode is 'roi' or 'all', you must provide a directory with contours annotations. " 
-    "Please use the `contouring` command to extract contours first."
+                                                 dict_to_update=params_stitch_WSI,
+                                                 key_to_check='stitching_settings')
                         
     # Path to the directory where the patches will be saved
     directory_patches = os.path.join(results_directory,
@@ -193,12 +195,14 @@ def patching(
 
         if f"{WSI_object.slide_name}.h5" in os.listdir(directory_patches):
             continue
-        
-        # Load the contours for the image
-        WSI_object.load_tissue_contours(os.path.join(contours_directory, f"{WSI_object.slide_name}.pkl"))
 
         if mode == "roi":
-            WSI_object.set_roi()
+            # Set the region of interest for the image
+            WSI_object.set_roi(rois_df_path=roi_csv)
+        
+        elif mode == "contours":
+            # Load the contours for the image
+            WSI_object.load_tissue_contours(os.path.join(contours_directory, f"{WSI_object.slide_name}.pkl"))
 
         # Extract patches from the contours
         WSI_object.extract_patches(mode=mode, **params_patches)

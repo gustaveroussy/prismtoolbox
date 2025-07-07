@@ -548,8 +548,8 @@ class WSI:
 
         Args:
             roi: Set the region of interest manually as a tuple (x1, y1, x2, y2).
-            rois_df_path: The path to dataframe containing the ROIs with a slide_id column identifying the slide.
-
+            rois_df_path: The path to dataframe containing the ROIs with a slide_id column identifying the slide, and 
+                the ROI coordinates as columns (x1, y1, x2, y2). If roi is not provided, the ROI will be set from this dataframe.
         Returns:
             The region of interest set for the slide as a tuple (x1, y1, x2, y2).
         """
@@ -557,6 +557,10 @@ class WSI:
             ROI = np.array(roi).astype(int)
         elif rois_df_path is not None:
             rois_df = pd.read_csv(rois_df_path)
+            if "slide_id" not in rois_df.columns or len(rois_df.columns) < 5:
+                raise ValueError(
+                    "The provided dataframe does not contain a 'slide_id' column, or does not have enough columns for ROI coordinates."
+                )
             ROI = rois_df[rois_df.slide_id == self.slide_name].values[0].astype(int)
         else:
             log.info("No ROI provided, prompting user to select one.")

@@ -6,8 +6,8 @@ The PrismToolBox CLI provides useful preprocessing capabilities for whole slide 
 
 The preprocessing module includes two main commands:
 
-1. **`contouring`**: Extract tissue contours from whole slide images
-2. **`patching`**: Extract patches from slides using tissue contours
+1. **`contour`**: Extract tissue contours from whole slide images
+2. **`patchify`**: Extract patches from slides using tissue contours
 
 ## Installation
 
@@ -27,14 +27,14 @@ All preprocessing commands support these global options:
 
 ## Commands
 
-### `ptb preprocessing contouring`
+### `ptb preprocessing contour`
 
 Extract tissue contours from whole slide images.
 
 #### Usage
 
 ```bash
-ptb preprocessing contouring [OPTIONS] SLIDE_DIRECTORY RESULTS_DIRECTORY
+ptb preprocessing contour [OPTIONS] SLIDE_DIRECTORY RESULTS_DIRECTORY
 ```
 
 #### Arguments
@@ -57,33 +57,33 @@ ptb preprocessing contouring [OPTIONS] SLIDE_DIRECTORY RESULTS_DIRECTORY
 You can use a YAML configuration file to specify tissue extraction and visualization parameters:
 
 ```yaml
---8<-- "./config/default_contouring.yaml"
+--8<-- "./config/default_contour_config.yaml"
 ```
 
 #### Examples
 
 ```bash
 # Basic contour extraction
-ptb preprocessing contouring slides/ results/
+ptb preprocessing contour slides/ results/
 
 # With visualization
-ptb preprocessing contouring slides/ results/ --visualize
+ptb preprocessing contour slides/ results/ --visualize
 
 # Using custom configuration
-ptb preprocessing contouring slides/ results/ --config-file custom_config.yaml
+ptb preprocessing contour slides/ results/ --config-file custom_config.yaml
 
 # With annotations and multiple output formats
-ptb preprocessing contouring slides/ results/ --annotations-directory annotations/ --contours-exts pickle geojson --visualize
+ptb preprocessing contour slides/ results/ --annotations-directory annotations/ --contours-exts pickle geojson --visualize
 ```
 
-### `ptb preprocessing patching`
+### `ptb preprocessing patchify`
 
 Extract patches from slides using tissue contours.
 
 #### Usage
 
 ```bash
-ptb preprocessing patching [OPTIONS] SLIDE_DIRECTORY RESULTS_DIRECTORY
+ptb preprocessing patchify [OPTIONS] SLIDE_DIRECTORY RESULTS_DIRECTORY
 ```
 
 #### Arguments
@@ -95,6 +95,7 @@ ptb preprocessing patching [OPTIONS] SLIDE_DIRECTORY RESULTS_DIRECTORY
 
 | Option | Type | Description | Default |
 |--------|------|-------------|---------|
+| `--roi-csv` | `str | None` | Path to the csv file containing the ROIs | `None` |
 | `--contours-directory` | `str | None` | Path to directory containing contour annotations | `None` |
 | `--engine` | `str` | Engine for reading slides | `openslide` |
 | `--mode` | `str` | Extraction mode (`contours`, `roi`, `all`) | `contours` |
@@ -106,20 +107,30 @@ ptb preprocessing patching [OPTIONS] SLIDE_DIRECTORY RESULTS_DIRECTORY
 Example configuration for patch extraction:
 
 ```yaml
---8<-- "./config/default_patching.yaml"
+--8<-- "./config/default_patch_config.yaml"
 ```
 
 #### Examples
 
 ```bash
 # Basic patch extraction
-ptb preprocessing patching slides/ results/ --contours-directory results/contours/
+ptb preprocessing patchify slides/ results/
 
-# With custom configuration
-ptb preprocessing patching slides/ results/  --contours-directory results/contours/ --config-file patch_config.yaml
+# Patch extraction within a ROI
+ptb preprocessing patchify slides/ results/ --mode roi  --roi-directory results/rois.csv
+
+# Within previously extracted tissue contours and custom configuration
+ptb preprocessing patchify slides/ results/ --mode contours  --contours-directory results/contours/ --config-file patch_config.yaml
 
 # Extract patches in multiple formats
-ptb preprocessing patching slides/ results/ --contours-directory results/contours/ --patch-exts h5 geojson
+ptb preprocessing patchify slides/ results/ --contours-directory results/contours/ --patch-exts h5 geojson
+```
+
+Attention: For the `roi` mode, you need to provide a table with the ROIs in a CSV format, where each row corresponds to a slide and contains the slide ID and coordinates of the ROI.
+
+```bash
+# Extract patches from a specific ROI
+ptb preprocessing patchify slides/ results/ --mode roi --roi-csv results/rois.csv
 ```
 
 ## Complete Workflow Example
@@ -132,49 +143,16 @@ ptb preprocessing contouring slides/ results/ --visualize --config-file tissue_c
 
 # Step 2: Extract patches from the contours
 ptb preprocessing patching slides/ results/ --contours-directory results/contours/ --config-file patch_config.yaml --patch-exts geojson
-
-# Results will be saved in:
-# - results/contours/        (tissue contours)
-# - results/contoured_images/ (visualizations)
-# - results/patches_256_ovelap_0/       (extracted patches)
-# - results/stitched_images_256_ovelap_0/ (patch visualizations)
 ```
 
-## Error Handling
-
-Common issues and solutions:
-
-### Missing Dependencies
-
-```bash
-Error: Segmentation features require additional dependencies.
-Please install with: pip install prismtoolbox[seg]
-```
-
-**Solution**: Install the required dependencies:
-```bash
-pip install prismtoolbox[seg,emb]
-```
-
-### Configuration File Issues
-
-```bash
-Warning: Incomplete tissue extraction parameters in config file
-```
-
-**Solution**: Ensure your configuration file contains all required parameters for each section.
-
-### File Path Issues
-
-```bash
-Error: No valid config file found. Using default parameters.
-```
-
-**Solution**: Check that your configuration file path is correct and the file exists.
+Results will be saved in:
+- results/contours/ (tissue contours as pickle files)
+- results/contoured_images/ (visualizations)
+- results/patches_256_ovelap_0/ (extracted patches as geojson coordinates)
+- results/stitched_images_256_ovelap_0/ (patch visualizations)
 
 ## Tips and Best Practices
 
-1. **Start with visualization**: Use `--visualize` flag to check if tissue detection works correctly
-2. **Test with small datasets**: Process a few slides first to validate your parameters
-3. **Use configuration files**: Store your parameters in YAML files for reproducibility
-4. **Monitor output**: Use verbose mode (`-v` or `-vv`) to see detailed processing information
+1. **Start with small datasets**: Process a few slides first to validate your parameters
+2. **Use visualizations**: Use `--visualize` flag to check if tissue detection works correctly, and `--stitch` to visualize the selected patches.
+3. **Monitor output**: Use verbose mode (`-v` or `-vv`) to see detailed processing information

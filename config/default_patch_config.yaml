@@ -1,7 +1,7 @@
 # Default configuration for PrismToolBox patching
 
 # Patch extraction parameters
-patching:
+patch_settings:
   patch_level: 0 # (float) Level of the slide to extract patches from. 
   patch_size: 256 # (float) Size of the patches to extract. 
   overlap: 0 # (float) Overlap between the patches. 
@@ -11,6 +11,6 @@ patching:
   percentages: [0.6, 0.9] # (float, float) The percentages of pixels below/above the thresholds to consider the patch as black/white.
 
 # Patch stitching parameters
-stitching:
-  vis_level: 2 # (int) Level of the slide to stitch the patches at.
+stitching_settings:
+  vis_level: 4 # (int) Level of the slide to stitch the patches at.
   draw_grid: false # (bool) Whether to draw a grid on the stitched image.

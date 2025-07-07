@@ -1,0 +1,15 @@
+# Default configuration for PrismToolBox contouring
+
+# Tissue contour extraction parameters
+contour_settings:
+  seg_level: 4 # (int) Segmentation level for the tissue contour extraction.
+  window_avg: 30 # (int) Size of the window average for tissue extraction.
+  window_eng: 5 # (int) Size of the window to use for computing energy for tissue extraction.
+  thresh: 190 # (int) Threshold for the tissue extraction algorithm.
+  area_min: 50000 # (int) Minimum area for the tissue contour.
+
+# Tissue visualization parameters
+visualization_settings:
+  vis_level: 4 # (int) Visualization level for the tissue contour extraction.
+  number_contours: false # (bool) Plot the id number for each contour.
+  line_thickness: 50 # (bool) Line thickness for the contour visualization.
