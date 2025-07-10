@@ -3,12 +3,11 @@ from __future__ import annotations
 import logging
 import os
 import uuid
-from typing import List, Optional, Tuple, Union
 
 import numpy as np
 from shapely import MultiPolygon, Polygon, box
 from shapely.affinity import translate
-from shapely.geometry import mapping, shape
+from shapely.geometry import mapping
 from shapely.ops import unary_union
 
 from .data_utils import load_obj_with_json, read_json_with_geopandas, save_obj_with_json
@@ -204,7 +203,7 @@ def patchesToPolygons(
     patches: np.ndarray,
     patch_size: int,
     patch_downsample: int,
-    merge: Optional[bool] = False,
+    merge: bool = False,
 ) -> MultiPolygon:
     """Converts patches to shapely polygons.
 

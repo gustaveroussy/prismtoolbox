@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import Any
 
 import logging
 import os
@@ -251,7 +252,7 @@ possible_transforms = {
     **get_torchvision_transforms(),
 }
     
-def create_transforms(transforms_dict: dict[str, dict[str, any]]) -> transformsv2.Compose:
+def create_transforms(transforms_dict: dict[str, dict[str, Any]]) -> transformsv2.Compose:
     """Create a torchvision.transforms.Compose object from a dictionary of transforms.
 
     Args:

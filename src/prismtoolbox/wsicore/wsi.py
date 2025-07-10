@@ -77,19 +77,19 @@ class WSI:
                 Set by the [set_slide_attributes][prismtoolbox.wsicore.WSI.set_slide_attributes] method.
             offset (tuple[int, int]): The offset of the slide image.
                 Set by the [set_slide_attributes][prismtoolbox.wsicore.WSI.set_slide_attributes] method.
-            ROI (ndarray): The region of interest in the slide image.
+            ROI (ndarray | None): The region of interest in the slide image.
                 Please use the [set_roi][prismtoolbox.wsicore.WSI.set_roi] method to set the ROI.
-            ROI_width (int): The width of the region of interest.
+            ROI_width (int | None): The width of the region of interest.
                 Set by the [set_roi][prismtoolbox.wsicore.WSI.set_roi] method.
-            ROI_height (int): The height of the region of interest.
+            ROI_height (int | None): The height of the region of interest.
                 Set by the [set_roi][prismtoolbox.wsicore.WSI.set_roi] method.
-            tissue_contours (list[ndarray]): The contours of the tissue in the slide image.
+            tissue_contours (list[ndarray] | None): The contours of the tissue in the slide image.
                 Please use the [detect_tissue][prismtoolbox.wsicore.WSI.detect_tissue]
                 method to detect the tissue contours.
-            coords (np.ndarray): The coordinates of patches extracted from slide image.
+            coords (np.ndarray | None): The coordinates of patches extracted from slide image.
                 Please use the [extract_patches][prismtoolbox.wsicore.WSI.extract_patches]
                 method to extract patches.
-            coords_attrs (dict): The attributes of the coordinates.
+            coords_attrs (dict | None): The attributes of the coordinates.
                 Set by the [extract_patches][prismtoolbox.wsicore.WSI.extract_patches] method.
         """
         self.slide_path = slide_path
@@ -304,7 +304,7 @@ class WSI:
         elif from_unit == to_unit:
             pass
         else:
-            raise ValueError(f"Conversion from {from_unit} to {to_unit} not supported")
+            raise ValueError(f"Conversion from {from_unit} to {to_unit} not supported.")
         return value
 
     def save_tissue_contours(
@@ -346,13 +346,13 @@ class WSI:
         if file_format == "pickle":
             file_path = os.path.join(save_dir, f"{self.slide_name}.pkl")
             log.info(
-                f"Saving tissue contours for slide {self.slide_name} at {file_path} with pickle."
+                f"Saving tissue contours for slide {self.slide_name} at {file_path} as pickle file."
             )
             save_obj_with_pickle(tissue_contours, file_path)
         elif file_format == "geojson":
             file_path = os.path.join(save_dir, f"{self.slide_name}.geojson")
             log.info(
-                f"Saving {selected_idx} tissue contours for slide {self.slide_name} at {file_path} with geojson."
+                f"Saving {selected_idx} tissue contours for slide {self.slide_name} at {file_path} as geojson file."
             )
             polygons = contoursToPolygons(tissue_contours, merge, make_valid)
             export_polygons_to_qupath(
@@ -418,7 +418,7 @@ class WSI:
             attr_dict = {"coords": self.coords_attrs}
             file_path = os.path.join(save_dir, f"{self.slide_name}.h5")
             log.info(
-                f"Saving patches for slide {self.slide_name} at {file_path} with hdf5."
+                f"Saving patches for slide {self.slide_name} at {file_path} as h5 file."
             )
             save_patches_with_hdf5(file_path, asset_dict, attr_dict)
         elif file_format == "geojson":
@@ -430,7 +430,7 @@ class WSI:
                 coords, self.coords_attrs["patch_size"], patch_downsample, merge
             )
             log.info(
-                f"Saving {len(coords)} patches for slide {self.slide_name} at {file_path} with geojson."
+                f"Saving {len(coords)} patches for slide {self.slide_name} at {file_path} as geojson file."
             )
             export_polygons_to_qupath(
                 polygons,
@@ -457,7 +457,7 @@ class WSI:
                 ).convert("RGB")
                 patch.save(os.path.join(save_dir, f"{coord[0]}_{coord[1]}.{file_format}"))
         else:
-            raise ValueError(f"format {file_format} not supported")
+            raise ValueError(f"Format {file_format} not supported.")
 
     def load_patches(self, file_path: str) -> None:
         """Load the patches from a hdf5 file.
@@ -481,7 +481,7 @@ class WSI:
             self.level_downsamples = self.slide.level_downsamples
             self.properties = self.slide.properties
         else:
-            raise NotImplementedError(f"engine {self.engine} not supported")
+            raise NotImplementedError(f"Engine {self.engine} not supported.")
         if (
             f"{self.engine}.bounds-x" in self.properties.keys()
             and self.properties[f"{self.engine}.bounds-x"] is not None
@@ -578,7 +578,7 @@ class WSI:
         self.ROI = ROI
         self.ROI_width = ROI[2] - ROI[0]
         self.ROI_height = ROI[3] - ROI[1]
-        print(f"ROI for slide {self.slide_name} has been set to {self.ROI}.")
+        log.info(f"ROI for slide {self.slide_name} has been set to {self.ROI}.")
         return ROI
 
     def detect_tissue(
@@ -622,8 +622,9 @@ class WSI:
                 final_contours.append(contour)
         if len(final_contours) == 0:
             self.tissue_contours = []
-            print(f"No contours found for slide {self.slide_name}.")
-            return
+            log.warning(
+                f"No tissue contours found for the slide {self.slide_name}."
+            )
         else:
             scale = self.level_downsamples[seg_level]
             offset = np.array(self.ROI[:2]) if self.ROI is not None else np.array([0, 0])
@@ -638,10 +639,10 @@ class WSI:
                     ]
                 )
             self.tissue_contours = final_contours
-            print(
-                f"Identified {len(final_contours)} contours for slide {self.slide_name}."
+            log.info(
+                f"Identified {len(final_contours)} contours for the slide {self.slide_name}."
             )
-            return
+        return
 
     def apply_pathologist_annotations(
         self,
@@ -792,15 +793,18 @@ class WSI:
             "level_dim": self.level_dimensions[patch_level],
             "name": self.slide_name,
         }
-
+        
         if len(valid_coords) == 0:
-            log.info(f"No valid coordinates found for slide {self.slide_name}.")
-        else:
-            print(
-                f"Identified a total of {len(valid_coords)}  valid coordinates in the slide {self.slide_name}."
+            log.warning(
+                f"No valid coordinates found for the slide {self.slide_name}."
             )
-            self.coords = valid_coords
-            self.coords_attrs = attr
+        else:
+            log.info(
+                f"Identified a total of {len(valid_coords)} valid coordinates for the slide {self.slide_name}."
+            )
+            
+        self.coords = valid_coords
+        self.coords_attrs = attr
 
     def extract_patches_roi(
         self,
@@ -847,7 +851,7 @@ class WSI:
         if coord_candidates is None:
             if roi_dim is None or step_size is None:
                 raise ValueError(
-                    "roi_dim and step_size must be provided if coord_candidates is not set"
+                    "roi_dim and step_size must be provided if coord_candidates is not set."
                 )
             start_x, start_y, w, h = roi_dim
 
@@ -872,7 +876,7 @@ class WSI:
         if contour is not None:
             if contours_mode is None:
                 raise ValueError(
-                    "A contour mode must be provided if patch extraction mode is set to contours"
+                    "A contour mode must be provided if patch extraction mode is set to contours."
                 ) 
             cont_check_fn = IsInContour(
                 contour, patch_size=ref_patch_size, center_shift=0.5, mode=contours_mode
@@ -953,7 +957,7 @@ class WSI:
         if not view_slide_only:
             if self.tissue_contours is None:
                 raise RuntimeError(
-                    "No tissue contours found for the slide, please run the detect_tissue method first"
+                    f"No tissue contours found for the slide {self.slide_name}, please run the detect_tissue method first."
                 )
             if crop_roi:
                 if self.ROI is None:
@@ -1046,11 +1050,11 @@ class WSI:
         """
         if self.coords_attrs is None:
             raise RuntimeError(
-                "No attributes set for the patches of the slide, please check if patches were correctly extracted."
+                f"No attributes set for the patches of the slide {self.slide_name}, please check if patches were correctly extracted."
             )
         assert self.coords is not None, (
-            "no coordinates provided for the patches to visualize, please run the "
-            "extract_patches method first or load the coordinates from a file"
+            "No coordinates provided for the patches to visualize, please run the "
+            "extract_patches method first or load the coordinates from a file."
         )
         if crop_roi:
             if self.ROI is None or self.ROI_width is None or self.ROI_height is None:
@@ -1099,8 +1103,8 @@ class WSI:
                 )
             if colors is not None:
                 assert len(colors) == len(idxs), (
-                    "the number of colors provided must match "
-                    "the number of selected coordinates"
+                    "The number of colors provided must match "
+                    "the number of selected coordinates."
                 )
                 color = colors[idx]
                 color_patch = (
@@ -1129,4 +1133,4 @@ class WSI:
         return img
 
     def __repr__(self):
-        return f"WSI({self.slide_path}, {self.engine}) with level {self.level_dimensions}"
+        return f"WSI({self.slide_path}, {self.engine}) with levels {self.level_dimensions}."

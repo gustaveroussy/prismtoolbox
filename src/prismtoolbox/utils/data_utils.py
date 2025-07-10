@@ -1,9 +1,8 @@
 from __future__ import annotations
+from typing import Any
 
 import json
 import pickle
-from typing import Any, Tuple
-
 import geopandas as gpd
 import h5py
 import numpy as np
@@ -57,7 +56,7 @@ def load_obj_with_json(file_path: str) -> Any:
         return json.load(f)
 
 
-def read_h5_file(file_path: str, key: str) -> Tuple[np.ndarray, dict]:
+def read_h5_file(file_path: str, key: str) -> tuple[np.ndarray, dict]:
     """Read an object from a h5 file.
 
     Args:
