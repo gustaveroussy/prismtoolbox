@@ -732,9 +732,9 @@ class WSI:
 
         if mode == "contours":
             log.info("Extracting patches with 'contours' mode.")
-            assert self.tissue_contours is not None
-            assert len(self.tissue_contours) > 0
-            assert contours_mode is not None
+            assert self.tissue_contours is not None, "Empty tissue contours vector for the slide, please run the detect_tissue method first."
+            assert len(self.tissue_contours) > 0, "No tissue contours found for the slide."
+            assert contours_mode is not None, "Contours mode must be provided if mode is set to 'contours'."
             valid_coords = []
             for cont in self.tissue_contours:
                 roi_dim = cv2.boundingRect(cont) # type: ignore

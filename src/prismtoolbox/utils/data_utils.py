@@ -85,6 +85,7 @@ def read_json_with_geopandas(
 
     Args:
         file_path: The path to a json file.
+        offset: The offset to apply to the coordinates of the geometries.
 
     Returns:
         A GeoDataFrame object from the json file.
